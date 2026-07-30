@@ -203,6 +203,8 @@ def profile() -> None:
     left, right = st.columns([5, 1])
     with left:
         with st.form("profile"):
+            # 🚨 1번 요청: 학번 저장란 근처에 경고 문구 추가
+            st.caption("🚨 닉네임은 무조건 8자리 학번으로 입력해 주세요. (학번이 아닐 경우 작성자에 의해 강퇴될 수 있습니다)")
             student = st.text_input("내 닉네임 (학번)", value=user(), placeholder="예: 60001234", disabled=locked,
                                     help="저장 후 7일 동안 변경할 수 없습니다.")
             if st.form_submit_button("학번 저장", use_container_width=True, disabled=locked):
@@ -286,10 +288,19 @@ def detail(client) -> None:
     for col,(label,value) in zip(st.columns(5),values):
         with col: st.markdown(f'<div class="box"><div class="label">{label}</div><div class="value">{html.escape(value)}</div></div>',unsafe_allow_html=True)
     
-    st.link_button("🔵 토스 앱으로 송금하기", "https://toss.im/", use_container_width=True)
+    # 🚨 3번 요청: 토스 버튼 옆에 카카오택시(카카오 T) 버튼 나란히 추가
+    btn_col1, btn_col2 = st.columns(2)
+    with btn_col1:
+        st.link_button("🔵 토스 앱으로 송금하기", "https://toss.im/", use_container_width=True)
+    with btn_col2:
+        st.link_button("🟡 카카오 T 앱 열기", "kakaot://", use_container_width=True)
     
     if post.get("expires_at"): st.success(f'모든 참여자의 송금이 완료됐습니다. {time_text(post["expires_at"])}에 글이 사라집니다.')
     st.divider(); st.subheader(f'참여자 {post["participant_count"]}명')
+    
+    # 🚨 2번 요청: 글 상세보기에도 학번 관련 경고 추가
+    st.caption("⚠️ 주의: 참여자의 닉네임이 올바른 학번(8자리 숫자)이 아닐 경우, 작성자가 '학번 미확인 추방'을 할 수 있습니다.")
+    
     participants=sorted(post["participants"].values(),key=lambda p:(not p.get("is_host"),p["joined_at"]))
     if user() not in post["participants"] and post["participant_count"] < post["max_people"]:
         if st.button("이 택시팟에 참여하기",type="primary") and require_user():
