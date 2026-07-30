@@ -15,6 +15,7 @@ from zoneinfo import ZoneInfo
 import firebase_admin
 from firebase_admin import credentials, firestore
 import streamlit as st
+from streamlit_autorefresh import st_autorefresh
 
 st.set_page_config(page_title="띵지고", page_icon="🚕", layout="wide")
 
@@ -177,7 +178,10 @@ def kick_unverified(client, post_id: str, author: str, target: str) -> tuple[boo
 def css() -> None:
     st.markdown("""<style>
       .block-container{max-width:1080px;padding-top:2.4rem}.sub{color:#788292;font-size:.92rem}
-      .card{border:1px solid #dce1e8;border-radius:12px;padding:1rem;margin:.65rem 0}.label{color:#7b8493;font-size:.76rem}.value{font-weight:650;color:#29384f;font-size:.93rem;overflow-wrap:anywhere}.box{background:#f8f8f6;border-radius:10px;padding:.8rem;min-height:82px}.tag{display:inline-block;padding:.16rem .5rem;border-radius:99px;margin-right:.2rem;font-size:.76rem}.join{background:#e9e4fb;color:#564798}.arrive{background:#fff0d7;color:#a8680b}.paid{background:#dff4e9;color:#237b55}.wait{background:#f1f2f5;color:#727987}.person{border:1px solid #dce1e8;border-radius:9px;padding:.7rem}.comment{border-bottom:1px solid #e7e9ed;padding:.7rem 0;white-space:pre-wrap;overflow-wrap:anywhere}h1,h2,h3{color:#17253d}div.stButton>button{border-radius:8px}</style>""", unsafe_allow_html=True)
+      .card{border:1px solid #dce1e8;border-radius:12px;padding:1rem;margin:.65rem 0}.label{color:#7b8493;font-size:.76rem}.value{font-weight:650;color:#29384f;font-size:.93rem;overflow-wrap:anywhere}.box{background:#f8f8f6;border-radius:10px;padding:.8rem;min-height:82px}.tag{display:inline-block;padding:.16rem .5rem;border-radius:99px;margin-right:.2rem;font-size:.76rem}.join{background:#e9e4fb;color:#564798}.arrive{background:#fff0d7;color:#a8680b}.paid{background:#dff4e9;color:#237b55}.wait{background:#f1f2f5;color:#727987}.person{border:1px solid #dce1e8;border-radius:9px;padding:.7rem}.comment{border-bottom:1px solid #e7e9ed;padding:.7rem 0;white-space:pre-wrap;overflow-wrap:anywhere}h1,h2,h3{color:#17253d}div.stButton>button{border-radius:8px}
+      /* 새 택시팟 버튼 네이비색 적용 */
+      div.stButton > button[kind="primary"] {background-color: #042557 !important; border-color: #042557 !important; color: white !important;}
+      </style>""", unsafe_allow_html=True)
 
 
 def user() -> str:
@@ -216,7 +220,7 @@ def profile() -> None:
 def header() -> None:
     a, b = st.columns([5, 1.35])
     with a:
-        st.title("🚕 띵지고")
+        st.markdown('<h1 style="color:#042557; margin-bottom:0;">🚙 띵지고</h1>', unsafe_allow_html=True)
         st.markdown('<p class="sub">셔틀버스를 놓친 명지대 학생들이 빠르게 함께 출발하는 택시팟</p>', unsafe_allow_html=True)
     with b:
         if st.button("＋ 새 택시팟", type="primary", use_container_width=True):
@@ -281,6 +285,9 @@ def detail(client) -> None:
     values=[("출발 장소",post["departure_place"]),("도착 장소",post["destination"]),("출발 시간",time_text(post["departure_at"])),("모인 인원",f'{post["participant_count"]}/{post["max_people"]}명'),("송금 계좌",f'{post["bank_name"]} {post["account_number"]}')]
     for col,(label,value) in zip(st.columns(5),values):
         with col: st.markdown(f'<div class="box"><div class="label">{label}</div><div class="value">{html.escape(value)}</div></div>',unsafe_allow_html=True)
+    
+    st.link_button("🔵 토스 앱으로 송금하기", "https://toss.im/", use_container_width=True)
+    
     if post.get("expires_at"): st.success(f'모든 참여자의 송금이 완료됐습니다. {time_text(post["expires_at"])}에 글이 사라집니다.')
     st.divider(); st.subheader(f'참여자 {post["participant_count"]}명')
     participants=sorted(post["participants"].values(),key=lambda p:(not p.get("is_host"),p["joined_at"]))
@@ -317,6 +324,10 @@ def detail(client) -> None:
 
 def main() -> None:
     css(); client=db()
+    
+    # 3000밀리초(3초)마다 자동 새로고침 실행
+    st_autorefresh(interval=3000, key="data_refresh")
+    
     if "view" not in st.session_state: st.session_state.view="home"
     header()
     if st.session_state.view=="new": new_post(client)
