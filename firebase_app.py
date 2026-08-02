@@ -101,7 +101,7 @@ def make_post(client, user: str, title: str, body: str, departure: str, destinat
         "departure_place": departure.strip(), "destination": destination.strip(),
         "departure_at": departure_at.astimezone(UTC), "max_people": max_people,
         "bank_name": bank.strip(), "account_number": account.strip(), "created_at": created,
-        "expires_at": expires_at, "total_fare": 0,
+        "expires_at": expires_at, "total_fare": 0, "is_closed": False,
         "participants": {user: {"student_id": user, "is_host": True, "joined_at": created,
                                   "arrived_at": None, "paid_at": None}},
     })
@@ -118,6 +118,8 @@ def join_post(client, post_id: str, user: str) -> tuple[bool, str]:
         if not snapshot.exists:
             return False, "이미 사라진 택시팟입니다."
         post = post_data(snapshot)
+        if post.get("is_closed", False):
+            return False, "이미 모집이 마감된 택시팟입니다."
         participants = dict(post["participants"])
         if user in participants:
             return True, "이미 참여 중입니다."
@@ -182,44 +184,68 @@ def user() -> str:
 def require_user() -> bool:
     if user():
         return True
-    st.warning("먼저 학번을 저장해 주세요.")
+    st.warning("먼저 로그인을 해주세요.")
     return False
 
 
-def profile() -> None:
+def profile(client) -> None:
     if user() and "student_id_locked_until" not in st.session_state:
         st.session_state.student_id_locked_until = now() + timedelta(days=7)
     locked_until = st.session_state.get("student_id_locked_until")
     locked = bool(locked_until and locked_until > now())
+    
     left, right = st.columns([5, 1])
     with left:
         with st.form("profile"):
-            st.caption("🚨 닉네임은 무조건 8자리 학번으로 입력해 주세요. (학번이 아닐 경우 작성자에 의해 강퇴될 수 있습니다)")
+            st.caption("🚨 첫 로그인 시 입력한 비밀번호로 회원가입이 됩니다. 닉네임은 무조건 8자리 학번을 사용하세요.")
             
-            # 비밀번호 입력란 추가
+            # 사용자 로그인 폼
             col1, col2 = st.columns([2, 1])
             with col1:
-                student = st.text_input("내 닉네임 (학번)", value=user(), placeholder="예: 60001234", disabled=locked, help="저장 후 7일 동안 변경할 수 없습니다.")
+                student = st.text_input("내 닉네임 (학번)", value=user(), placeholder="예: 60001234", disabled=locked)
             with col2:
-                password = st.text_input("비밀번호 (관리자 전용)", type="password", disabled=locked, placeholder="일반 유저는 공란")
+                password = st.text_input("비밀번호 (4자리 이상)", type="password", disabled=locked, placeholder="****")
                 
-            if st.form_submit_button("학번 저장", use_container_width=True, disabled=locked):
+            if st.form_submit_button("로그인 및 저장", use_container_width=True, disabled=locked):
                 sid = student.strip()
-                if sid in ADMIN_CREDS:
-                    # 관리자 학번인 경우 비밀번호 검증
-                    if password.strip() == ADMIN_CREDS[sid]:
-                        st.session_state.student_id = sid
-                        st.session_state.is_admin = True
-                        st.session_state.student_id_locked_until = now() + timedelta(days=7)
-                        st.rerun()
-                    else:
-                        st.error("관리자 비밀번호가 틀렸습니다.")
+                pwd = password.strip()
+                
+                if not valid_student_id(sid):
+                    st.error("명지대 학번 8자리를 정확히 입력해 주세요.")
+                elif not pwd:
+                    st.error("비밀번호를 입력해 주세요.")
                 else:
-                    # 일반 유저인 경우 그대로 저장
-                    st.session_state.student_id = sid
-                    st.session_state.is_admin = False
-                    st.session_state.student_id_locked_until = now() + timedelta(days=7)
-                    st.rerun()
+                    # 최고 관리자 로그인 처리
+                    if sid in ADMIN_CREDS:
+                        if pwd == ADMIN_CREDS[sid]:
+                            st.session_state.student_id = sid
+                            st.session_state.is_admin = True
+                            st.session_state.student_id_locked_until = now() + timedelta(days=7)
+                            st.rerun()
+                        else:
+                            st.error("관리자 비밀번호가 틀렸습니다.")
+                    else:
+                        # 일반 유저 로그인 및 가입 처리
+                        user_ref = client.collection("users").document(sid)
+                        user_doc = user_ref.get()
+                        
+                        if user_doc.exists:
+                            saved_pwd = user_doc.to_dict().get("password")
+                            if saved_pwd == pwd:
+                                st.session_state.student_id = sid
+                                st.session_state.is_admin = False
+                                st.session_state.student_id_locked_until = now() + timedelta(days=7)
+                                st.rerun()
+                            else:
+                                st.error("비밀번호가 틀렸습니다. (이미 가입된 학번입니다)")
+                        else:
+                            # 새 유저 등록
+                            user_ref.set({"password": pwd})
+                            st.session_state.student_id = sid
+                            st.session_state.is_admin = False
+                            st.session_state.student_id_locked_until = now() + timedelta(days=7)
+                            st.rerun()
+                            
     with right:
         if user():
             st.caption(f"현재: {user()}")
@@ -230,7 +256,7 @@ def profile() -> None:
                 st.caption(f"변경 가능: {time_text(locked_until)}")
 
 
-def header() -> None:
+def header(client) -> None:
     a, b = st.columns([5, 1.35])
     with a:
         st.markdown('<h1 style="color:#042557; margin-bottom:0;">🚙 띵지고</h1>', unsafe_allow_html=True)
@@ -238,7 +264,7 @@ def header() -> None:
     with b:
         if st.button("＋ 새 택시팟", type="primary", use_container_width=True):
             st.session_state.view = "new"; st.rerun()
-    profile()
+    profile(client)
 
 
 def home(client) -> None:
@@ -247,21 +273,23 @@ def home(client) -> None:
     with st.expander("📖 띵지고 사용설명서 (처음 오셨다면 꼭 읽어주세요!)"):
         st.markdown("""
         **1. 시작하기 전 필수 세팅**
-        * 화면 상단에 본인의 **명지대 학번(8자리 숫자)**을 닉네임으로 저장해 주세요.
-        * 학번이 아닐 경우, 택시팟 작성자(방장)에 의해 언제든 강퇴당할 수 있습니다.
+        * 화면 상단에 본인의 **명지대 학번(8자리 숫자)**과 **비밀번호**를 입력해 주세요. (최초 입력 시 자동 가입됩니다)
+        * 학번이 아닐 경우, 언제든 강퇴당할 수 있습니다.
         
         **2. 택시팟 모이기 & 소통하기**
-        * 원하는 시간과 장소의 택시팟에 '참여하기'를 누릅니다.
-        * 상세 화면의 **'댓글'** 기능을 활용해 현재 위치나 입고 있는 옷 등 변동 상황을 빠르게 공유하세요.
+        * 리스트에서 원하는 택시팟에 '참여하기'를 누릅니다.
+        * 원하는 인원이 다 모이지 않았더라도, **방장(글 작성자)이 판단하여 '모집 조기 마감' 버튼을 눌러 출발을 확정할 수 있습니다.**
+        * 상세 화면의 **'댓글'** 기능으로 현재 위치나 입고 있는 옷 등 변동 상황을 빠르게 공유하세요.
         * 모임 장소에 도착하면 **'도착 완료'** 버튼을 눌러주세요.
         
         **3. 하차 및 자동 정산 (가장 중요!)**
-        * 목적지에 내리기 직전, 글 작성자(방장)가 택시 미터기 총액을 입력합니다.
-        * 자동으로 계산된 **1인당 송금액**을 확인하고, **'토스'**나 **'카카오 T'** 버튼을 눌러 작성자에게 송금합니다.
+        * 목적지에 내리기 직전, 글 작성자(방장)가 택시 미터기 총액(또는 중간 정산 금액)을 입력할 수 있습니다.
+        * 금액을 입력하면 인원수에 맞춰 **1인당 송금액**이 자동으로 계산됩니다. (단순 부가 기능이므로, 금액을 공란으로 두거나 0원으로 남겨두어도 시스템 이용에는 아무 문제가 없습니다.)
+        * 금액을 확인하고, **'토스'**나 **'카카오 T'** 앱 열기 버튼을 눌러 작성자에게 송금합니다.
         * 송금을 마친 분은 반드시 **'송금 완료'** 버튼을 눌러 상태를 변경해 주세요. (방장은 돈을 받는 사람이므로 누르지 않습니다.)
         """)
         
-        # ex1.jpg, ex2.jpg 사진 2장 연달아 띄우기
+        # ex1.jpg, ex2.jpg 사진 2장 띄우기
         try:
             st.image("ex1.jpg", caption="[참고] 사용 예시 1")
             st.image("ex2.jpg", caption="[참고] 사용 예시 2")
@@ -280,9 +308,12 @@ def home(client) -> None:
             with col: st.markdown(f'<div class="label">{label}</div><div class="value">{html.escape(str(value))}</div>', unsafe_allow_html=True)
         with cols[5]:
             joined = user() in post["participants"]
+            is_closed = post.get("is_closed", False)
             full = post["participant_count"] >= post["max_people"]
-            label = "내 상태 보기" if joined else ("모집 완료" if full else "참여하기")
-            if st.button(label, key=f"enter_{post['id']}", disabled=full and not joined, use_container_width=True):
+            
+            label = "내 상태 보기" if joined else ("모집 마감" if (full or is_closed) else "참여하기")
+            
+            if st.button(label, key=f"enter_{post['id']}", disabled=(full or is_closed) and not joined, use_container_width=True):
                 if require_user():
                     ok, message = join_post(client, post["id"], user())
                     if ok: st.session_state.view="detail"; st.session_state.post_id=post["id"]; st.rerun()
@@ -338,10 +369,11 @@ def detail(client) -> None:
     st.divider()
     st.subheader("💰 정산하기")
     
+    # 방장만 총 요금을 입력할 수 있도록 구성
     if post["author_id"] == user():
         calc_col1, calc_col2 = st.columns([3, 1])
         with calc_col1:
-            fare_input = st.number_input("총 택시 요금을 입력하세요 (원)", min_value=0, value=post.get("total_fare", 0), step=100, label_visibility="collapsed")
+            fare_input = st.number_input("총 택시 요금 또는 정산 금액을 입력하세요 (원)", min_value=0, value=post.get("total_fare", 0), step=100, label_visibility="collapsed")
         with calc_col2:
             if st.button("요금 공유하기", use_container_width=True):
                 client.collection("posts").document(post["id"]).update({"total_fare": fare_input})
@@ -352,7 +384,7 @@ def detail(client) -> None:
         per_person = total_fare // post["participant_count"]
         st.success(f"🚕 **총 요금:** {total_fare:,}원 ➔ 💸 **1인당 보내야 할 금액: {per_person:,}원** (총 {post['participant_count']}명 기준)")
     else:
-        st.info("💡 도착 후 방장이 여기에 총 택시 요금을 입력하면, 1인당 송금액이 자동으로 계산됩니다.")
+        st.info("💡 방장이 택시 요금을 입력하면 1인당 송금액이 자동 계산됩니다. (입력하지 않아도 시스템 이용에 문제없는 부가 기능입니다)")
 
     btn_col1, btn_col2 = st.columns(2)
     with btn_col1:
@@ -364,14 +396,24 @@ def detail(client) -> None:
         st.info(f'이 게시글은 작성 후 48시간 뒤인 {time_text(post["expires_at"])}에 자동 삭제됩니다.')
         
     st.divider(); st.subheader(f'참여자 {post["participant_count"]}명')
+    
+    is_closed = post.get("is_closed", False)
+    if is_closed:
+        st.warning("🚫 방장에 의해 모집이 마감된 택시팟입니다.")
+    elif post["author_id"] == user() and post["participant_count"] < post["max_people"]:
+        if st.button("🚫 원하는 인원이 안 모였어도 모집 마감하기", use_container_width=True):
+            client.collection("posts").document(post["id"]).update({"is_closed": True})
+            st.rerun()
+            
     st.caption("⚠️ 주의: 참여자의 닉네임이 올바른 학번(8자리 숫자)이 아닐 경우, 작성자가 '학번 미확인 추방'을 할 수 있습니다.")
     
     participants=sorted(post["participants"].values(),key=lambda p:(not p.get("is_host"),p["joined_at"]))
-    if user() not in post["participants"] and post["participant_count"] < post["max_people"]:
+    if user() not in post["participants"] and post["participant_count"] < post["max_people"] and not is_closed:
         if st.button("이 택시팟에 참여하기",type="primary") and require_user():
             ok,msg=join_post(client,post["id"],user());
             if ok: st.rerun()
             st.error(msg)
+            
     for p in participants:
         a,b,c=st.columns([2.4,3.5,2.6]); ident=p["student_id"]
         with a: st.markdown(f'<div class="person">👤 <b>{html.escape(ident)}</b>{" · 작성자" if p.get("is_host") else ""}{" · 학번 미확인" if not valid_student_id(ident) else ""}</div>',unsafe_allow_html=True)
@@ -388,6 +430,7 @@ def detail(client) -> None:
                 if st.button("학번 미확인 추방",key=f'k{ident}'):
                     ok,msg=kick_unverified(client,post["id"],user(),ident); st.success(msg) if ok else st.error(msg); st.rerun() if ok else None
             else: st.caption("본인만 상태를 변경할 수 있어요.")
+            
     st.divider(); st.subheader("댓글")
     comments=list(client.collection("posts").document(post["id"]).collection("comments").order_by("created_at").stream())
     for comment in comments:
@@ -404,7 +447,7 @@ def main() -> None:
     st_autorefresh(interval=3000, key="data_refresh")
     
     if "view" not in st.session_state: st.session_state.view="home"
-    header()
+    header(client)
     if st.session_state.view=="new": new_post(client)
     elif st.session_state.view=="detail": detail(client)
     else: home(client)
