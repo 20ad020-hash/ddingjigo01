@@ -66,26 +66,31 @@ def post_data(snapshot) -> dict:
     return value
 
 
-def live_posts(client) -> list[dict]:
+def live_posts(client, is_admin: bool) -> list[dict]:
     result = []
     for snapshot in client.collection("posts").stream():
         post = post_data(snapshot)
         expiry = post.get("expires_at")
-        if expiry and expiry <= now():
-            snapshot.reference.delete()
+        is_expired = expiry and expiry <= now()
+        
+        # 일반 유저에게는 만료된 글을 숨김 (DB에서 영구 삭제하지 않음)
+        if is_expired and not is_admin:
             continue
+            
         result.append(post)
     return sorted(result, key=lambda p: p["departure_at"])
 
 
-def get_post(client, post_id: str) -> dict | None:
+def get_post(client, post_id: str, is_admin: bool) -> dict | None:
     snapshot = client.collection("posts").document(post_id).get()
     if not snapshot.exists:
         return None
     post = post_data(snapshot)
-    if post.get("expires_at") and post.get("expires_at") <= now():
-        snapshot.reference.delete()
+    
+    # 일반 유저가 만료된 글에 접근하려고 하면 차단
+    if post.get("expires_at") and post.get("expires_at") <= now() and not is_admin:
         return None
+        
     return post
 
 
@@ -268,6 +273,7 @@ def header(client) -> None:
 
 
 def home(client) -> None:
+    is_admin = st.session_state.get("is_admin", False)
     st.header("모든 택시팟")
     
     with st.expander("📖 띵지고 사용설명서 (처음 오셨다면 꼭 읽어주세요!)"):
@@ -289,35 +295,50 @@ def home(client) -> None:
         * 송금을 마친 분은 반드시 **'송금 완료'** 버튼을 눌러 상태를 변경해 주세요. (방장은 돈을 받는 사람이므로 누르지 않습니다.)
         """)
         
-        # ex1.jpg, ex2.jpg 사진 2장 띄우기
         try:
             st.image("ex1.jpg", caption="[참고] 사용 예시 1")
             st.image("ex2.jpg", caption="[참고] 사용 예시 2")
         except:
             pass
 
-    st.caption("참여하기를 누르면 바로 참여자 현황과 댓글 화면으로 이동합니다. (모든 글은 작성 48시간 뒤 자동 삭제됩니다)")
-    posts = live_posts(client)
+    if is_admin:
+        st.info("👑 최고 관리자 모드: 만료된 모든 게시글까지 확인 가능하며, 글을 강제로 열람하고 삭제할 수 있습니다.")
+    else:
+        st.caption("참여하기를 누르면 바로 참여자 현황과 댓글 화면으로 이동합니다. (모든 글은 작성 48시간 뒤 자동 삭제됩니다)")
+        
+    posts = live_posts(client, is_admin)
     if not posts:
         st.info("아직 열린 택시팟이 없어요.")
+        
     for post in posts:
         cols = st.columns([2.15, 1.25, 1.2, 1.2, .72, 1.25])
         with cols[0]:
-            st.markdown(f'<div class="value" style="font-size:1.1rem">{html.escape(post["title"])}</div><div class="sub">{html.escape(post["content"])}</div>', unsafe_allow_html=True)
+            is_expired = post.get("expires_at") and post.get("expires_at") <= now()
+            title_prefix = "<span style='color:red;'>[만료]</span> " if is_expired else ""
+            st.markdown(f'<div class="value" style="font-size:1.1rem">{title_prefix}{html.escape(post["title"])}</div><div class="sub">{html.escape(post["content"])}</div>', unsafe_allow_html=True)
+            
         for col, label, value in zip(cols[1:5], ["출발 장소", "도착 장소", "출발 시간", "모인 인원"], [post["departure_place"], post["destination"], time_text(post["departure_at"]), f'{post["participant_count"]}/{post["max_people"]}명']):
             with col: st.markdown(f'<div class="label">{label}</div><div class="value">{html.escape(str(value))}</div>', unsafe_allow_html=True)
+            
         with cols[5]:
-            joined = user() in post["participants"]
-            is_closed = post.get("is_closed", False)
-            full = post["participant_count"] >= post["max_people"]
-            
-            label = "내 상태 보기" if joined else ("모집 마감" if (full or is_closed) else "참여하기")
-            
-            if st.button(label, key=f"enter_{post['id']}", disabled=(full or is_closed) and not joined, use_container_width=True):
-                if require_user():
-                    ok, message = join_post(client, post["id"], user())
-                    if ok: st.session_state.view="detail"; st.session_state.post_id=post["id"]; st.rerun()
-                    st.error(message)
+            if is_admin:
+                if st.button("🚨 관리자 보기", key=f"admin_{post['id']}", use_container_width=True):
+                    st.session_state.view = "detail"
+                    st.session_state.post_id = post["id"]
+                    st.rerun()
+            else:
+                joined = user() in post["participants"]
+                is_closed = post.get("is_closed", False)
+                full = post["participant_count"] >= post["max_people"]
+                
+                label = "내 상태 보기" if joined else ("모집 마감" if (full or is_closed) else "참여하기")
+                
+                if st.button(label, key=f"enter_{post['id']}", disabled=(full or is_closed) and not joined, use_container_width=True):
+                    if require_user():
+                        ok, message = join_post(client, post["id"], user())
+                        if ok: st.session_state.view="detail"; st.session_state.post_id=post["id"]; st.rerun()
+                        st.error(message)
+                        
         st.caption(f'도착 {post["arrived_count"]}명 · 송금 완료 {post["paid_count"]}명')
         st.divider()
 
@@ -347,16 +368,16 @@ def badges(p: dict) -> str:
 
 
 def detail(client) -> None:
-    post = get_post(client, st.session_state.get("post_id", ""))
+    is_admin = st.session_state.get("is_admin", False)
+    post = get_post(client, st.session_state.get("post_id", ""), is_admin)
     if not post: st.warning("이 택시팟은 사라졌습니다."); return
     
     col1, col2 = st.columns([1, 1])
     with col1:
         if st.button("← 목록으로"): st.session_state.view="home"; st.rerun()
     with col2:
-        # 로그인 세션이 관리자일 때만 권한 부여
-        if st.session_state.get("is_admin", False):
-            if st.button("🚨 관리자 권한으로 이 택시팟 강제 삭제", key="admin_delete"):
+        if is_admin:
+            if st.button("🚨 관리자 권한으로 이 택시팟 영구 삭제", key="admin_delete"):
                 client.collection("posts").document(post["id"]).delete()
                 st.session_state.view="home"
                 st.rerun()
@@ -369,7 +390,6 @@ def detail(client) -> None:
     st.divider()
     st.subheader("💰 정산하기")
     
-    # 방장만 총 요금을 입력할 수 있도록 구성
     if post["author_id"] == user():
         calc_col1, calc_col2 = st.columns([3, 1])
         with calc_col1:
@@ -393,7 +413,7 @@ def detail(client) -> None:
         st.link_button("🟡 카카오 T 앱 열기", "kakaot://", use_container_width=True)
     
     if post.get("expires_at"):
-        st.info(f'이 게시글은 작성 후 48시간 뒤인 {time_text(post["expires_at"])}에 자동 삭제됩니다.')
+        st.info(f'이 게시글은 작성 후 48시간 뒤인 {time_text(post["expires_at"])}에 자동 숨김 처리됩니다.')
         
     st.divider(); st.subheader(f'참여자 {post["participant_count"]}명')
     
@@ -408,7 +428,9 @@ def detail(client) -> None:
     st.caption("⚠️ 주의: 참여자의 닉네임이 올바른 학번(8자리 숫자)이 아닐 경우, 작성자가 '학번 미확인 추방'을 할 수 있습니다.")
     
     participants=sorted(post["participants"].values(),key=lambda p:(not p.get("is_host"),p["joined_at"]))
-    if user() not in post["participants"] and post["participant_count"] < post["max_people"] and not is_closed:
+    
+    # 관리자가 아니고, 참여 안 했고, 인원 남았고, 안 닫혔을 때만 참여 버튼 표시
+    if not is_admin and user() not in post["participants"] and post["participant_count"] < post["max_people"] and not is_closed:
         if st.button("이 택시팟에 참여하기",type="primary") and require_user():
             ok,msg=join_post(client,post["id"],user());
             if ok: st.rerun()
