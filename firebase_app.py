@@ -440,6 +440,11 @@ def edit_post(client) -> None:
         st.rerun()
 
 
+# 🚨 누락되었던 뱃지 함수 (이 부분 때문에 에러가 났습니다!)
+def badges(p: dict) -> str:
+    return '<span class="tag join">참여</span>'+('<span class="tag arrive">도착 완료</span>' if p.get("arrived_at") else '<span class="tag wait">도착 전</span>')+('<span class="tag paid">송금 완료</span>' if p.get("paid_at") else '<span class="tag wait">송금 전</span>')
+
+
 def detail(client) -> None:
     is_admin = st.session_state.get("is_admin", False)
     post = get_post(client, st.session_state.get("post_id", ""), is_admin)
