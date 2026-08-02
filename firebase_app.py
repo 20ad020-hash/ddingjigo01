@@ -113,6 +113,17 @@ def make_post(client, user: str, title: str, body: str, departure: str, destinat
     return reference.id
 
 
+def update_post(client, post_id: str, title: str, body: str, departure: str, destination: str,
+                departure_at: datetime, max_people: int, bank: str, account: str) -> None:
+    reference = client.collection("posts").document(post_id)
+    reference.update({
+        "title": title.strip(), "content": body.strip(),
+        "departure_place": departure.strip(), "destination": destination.strip(),
+        "departure_at": departure_at.astimezone(UTC), "max_people": max_people,
+        "bank_name": bank.strip(), "account_number": account.strip()
+    })
+
+
 def join_post(client, post_id: str, user: str) -> tuple[bool, str]:
     reference = client.collection("posts").document(post_id)
     transaction = client.transaction()
@@ -133,6 +144,28 @@ def join_post(client, post_id: str, user: str) -> tuple[bool, str]:
         participants[user] = {"student_id": user, "is_host": False, "joined_at": now(), "arrived_at": None, "paid_at": None}
         transaction.update(reference, {"participants": participants})
         return True, "택시팟에 참여했습니다."
+
+    return run(transaction)
+
+
+def leave_post(client, post_id: str, target: str) -> tuple[bool, str]:
+    reference = client.collection("posts").document(post_id)
+    transaction = client.transaction()
+
+    @firestore.transactional
+    def run(transaction):
+        snapshot = reference.get(transaction=transaction)
+        if not snapshot.exists:
+            return False, "이미 사라진 택시팟입니다."
+        post = post_data(snapshot)
+        participants = dict(post["participants"])
+        if target not in participants:
+            return False, "참여 중이 아닙니다."
+        if participants[target].get("is_host"):
+            return False, "방장은 참여 취소를 할 수 없습니다. 글 삭제를 이용해주세요."
+        participants.pop(target, None)
+        transaction.update(reference, {"participants": participants})
+        return True, "참여가 취소되었습니다."
 
     return run(transaction)
 
@@ -283,9 +316,9 @@ def home(client) -> None:
         * 학번이 아닐 경우, 언제든 강퇴당할 수 있습니다.
         
         **2. 택시팟 모이기 & 소통하기**
-        * 리스트에서 원하는 택시팟에 '참여하기'를 누릅니다.
+        * 리스트에서 원하는 택시팟에 '참여하기'를 누릅니다. (참여자는 언제든 '참여 취소'가 가능합니다)
         * 원하는 인원이 다 모이지 않았더라도, **방장(글 작성자)이 판단하여 '모집 조기 마감' 버튼을 눌러 출발을 확정할 수 있습니다.**
-        * 상세 화면의 **'댓글'** 기능으로 현재 위치나 입고 있는 옷 등 변동 상황을 빠르게 공유하세요.
+        * 방장은 등록한 글을 수정하거나 삭제할 수도 있습니다.
         * 모임 장소에 도착하면 **'도착 완료'** 버튼을 눌러주세요.
         
         **3. 하차 및 자동 정산 (가장 중요!)**
@@ -304,7 +337,7 @@ def home(client) -> None:
     if is_admin:
         st.info("👑 최고 관리자 모드: 만료된 모든 게시글까지 확인 가능하며, 글을 강제로 열람하고 삭제할 수 있습니다.")
     else:
-        st.caption("참여하기를 누르면 바로 참여자 현황과 댓글 화면으로 이동합니다. (모든 글은 작성 48시간 뒤 자동 삭제됩니다)")
+        st.caption("참여하기를 누르면 바로 참여자 현황과 댓글 화면으로 이동합니다. (모든 글은 작성 48시간 뒤 자동 숨김 처리됩니다)")
         
     posts = live_posts(client, is_admin)
     if not posts:
@@ -363,8 +396,48 @@ def new_post(client) -> None:
         st.session_state.view="detail"; st.session_state.post_id=post_id; st.rerun()
 
 
-def badges(p: dict) -> str:
-    return '<span class="tag join">참여</span>'+('<span class="tag arrive">도착 완료</span>' if p.get("arrived_at") else '<span class="tag wait">도착 전</span>')+('<span class="tag paid">송금 완료</span>' if p.get("paid_at") else '<span class="tag wait">송금 전</span>')
+def edit_post(client) -> None:
+    post_id = st.session_state.get("post_id")
+    is_admin = st.session_state.get("is_admin", False)
+    post = get_post(client, post_id, is_admin)
+    
+    if not post or post["author_id"] != user():
+        st.warning("수정 권한이 없거나 글이 존재하지 않습니다.")
+        if st.button("← 돌아가기"): st.session_state.view = "home"; st.rerun()
+        return
+
+    if st.button("← 취소하고 돌아가기"): st.session_state.view = "detail"; st.rerun()
+    st.header("택시팟 수정하기")
+    
+    kst_dt = to_kst(post["departure_at"])
+    
+    with st.form("edit"):
+        title = st.text_input("제목", value=post["title"])
+        body = st.text_area("내용", value=post["content"], max_chars=300)
+        a, b = st.columns(2)
+        with a: 
+            departure = st.text_input("출발 장소", value=post["departure_place"])
+            day = st.date_input("출발 날짜", value=kst_dt.date())
+        with b: 
+            destination = st.text_input("도착 장소", value=post["destination"])
+            clock = st.time_input("출발 시간", value=kst_dt.time())
+        a, b, c = st.columns([1, 1.4, .8])
+        with a: bank = st.text_input("은행명", value=post["bank_name"])
+        with b: account = st.text_input("계좌번호", value=post["account_number"])
+        
+        current_max = post["max_people"]
+        idx = [1,2,3,4].index(current_max) if current_max in [1,2,3,4] else 3
+        with c: maximum = st.selectbox("모일 사람 수", [1,2,3,4], index=idx)
+        
+        submitted = st.form_submit_button("수정 완료", type="primary", use_container_width=True)
+        
+    if submitted:
+        if not all(x.strip() for x in [title, body, departure, destination, bank, account]):
+            st.error("모든 항목을 입력해 주세요.")
+            return
+        update_post(client, post_id, title, body, departure, destination, datetime.combine(day, clock, tzinfo=KST), maximum, bank, account)
+        st.session_state.view = "detail"
+        st.rerun()
 
 
 def detail(client) -> None:
@@ -381,6 +454,18 @@ def detail(client) -> None:
                 client.collection("posts").document(post["id"]).delete()
                 st.session_state.view="home"
                 st.rerun()
+        # 방장의 경우 수정/삭제 버튼 제공
+        elif post["author_id"] == user():
+            btn_e, btn_d = st.columns(2)
+            with btn_e:
+                if st.button("✏️ 수정", use_container_width=True):
+                    st.session_state.view = "edit"
+                    st.rerun()
+            with btn_d:
+                if st.button("🗑️ 삭제", use_container_width=True):
+                    client.collection("posts").document(post["id"]).delete()
+                    st.session_state.view = "home"
+                    st.rerun()
 
     st.header(post["title"]); st.write(post["content"]); st.caption(f'글 작성자: {post["author_id"]}')
     values=[("출발 장소",post["departure_place"]),("도착 장소",post["destination"]),("출발 시간",time_text(post["departure_at"])),("모인 인원",f'{post["participant_count"]}/{post["max_people"]}명'),("송금 계좌",f'{post["bank_name"]} {post["account_number"]}')]
@@ -390,6 +475,7 @@ def detail(client) -> None:
     st.divider()
     st.subheader("💰 정산하기")
     
+    # 방장만 총 요금을 입력할 수 있도록 구성
     if post["author_id"] == user():
         calc_col1, calc_col2 = st.columns([3, 1])
         with calc_col1:
@@ -437,17 +523,30 @@ def detail(client) -> None:
             st.error(msg)
             
     for p in participants:
-        a,b,c=st.columns([2.4,3.5,2.6]); ident=p["student_id"]
+        a,b,c=st.columns([2.2, 2.8, 4.0]); ident=p["student_id"]
         with a: st.markdown(f'<div class="person">👤 <b>{html.escape(ident)}</b>{" · 작성자" if p.get("is_host") else ""}{" · 학번 미확인" if not valid_student_id(ident) else ""}</div>',unsafe_allow_html=True)
         with b: st.markdown(f'<div class="person">{badges(p)}</div>',unsafe_allow_html=True)
         with c:
             if ident==user():
-                x,y=st.columns(2)
-                with x:
-                    if not p.get("arrived_at") and st.button("도착 완료",key=f'a{ident}',use_container_width=True): update_status(client,post["id"],ident,"arrived_at"); st.rerun()
-                with y:
-                    if p.get("is_host"): st.caption("작성자는 송금 대상이 아닙니다.")
-                    elif not p.get("paid_at") and st.button("송금 완료",key=f'p{ident}',use_container_width=True): update_status(client,post["id"],ident,"paid_at"); st.rerun()
+                # 방장인 경우
+                if p.get("is_host"):
+                    x, y = st.columns(2)
+                    with x:
+                        if not p.get("arrived_at") and st.button("도착 완료",key=f'a{ident}',use_container_width=True): update_status(client,post["id"],ident,"arrived_at"); st.rerun()
+                    with y:
+                        st.caption("방장(수정/삭제 권한 보유)")
+                # 일반 참여자인 경우 (취소 버튼 포함)
+                else:
+                    x, y, z = st.columns([1, 1, 1])
+                    with x:
+                        if not p.get("arrived_at") and st.button("도착",key=f'a{ident}',use_container_width=True): update_status(client,post["id"],ident,"arrived_at"); st.rerun()
+                    with y:
+                        if not p.get("paid_at") and st.button("송금",key=f'p{ident}',use_container_width=True): update_status(client,post["id"],ident,"paid_at"); st.rerun()
+                    with z:
+                        if st.button("❌ 취소",key=f'l{ident}',use_container_width=True): 
+                            ok,msg = leave_post(client, post["id"], ident)
+                            if ok: st.rerun()
+                            else: st.error(msg)
             elif post["author_id"]==user() and not p.get("is_host") and not valid_student_id(ident):
                 if st.button("학번 미확인 추방",key=f'k{ident}'):
                     ok,msg=kick_unverified(client,post["id"],user(),ident); st.success(msg) if ok else st.error(msg); st.rerun() if ok else None
@@ -470,7 +569,9 @@ def main() -> None:
     
     if "view" not in st.session_state: st.session_state.view="home"
     header(client)
+    
     if st.session_state.view=="new": new_post(client)
+    elif st.session_state.view=="edit": edit_post(client)
     elif st.session_state.view=="detail": detail(client)
     else: home(client)
 
