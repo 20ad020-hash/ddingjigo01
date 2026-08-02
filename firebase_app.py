@@ -1,8 +1,4 @@
-"""띵지고 Firebase(공용) 버전. 배포용 실행 파일입니다.
-
-서비스 계정 JSON은 코드에 넣지 말고 Streamlit secrets의
-firebase_service_account 항목으로만 제공합니다.
-"""
+"""띵지고 Firebase(공용) 버전. 배포용 실행 파일입니다."""
 
 from __future__ import annotations
 
@@ -22,6 +18,12 @@ st.set_page_config(page_title="띵지고", page_icon="🚕", layout="wide")
 KST = ZoneInfo("Asia/Seoul")
 UTC = timezone.utc
 STUDENT_ID_PATTERN = re.compile(r"^\d{8}$")
+
+# 🚨 최고 관리자 계정 정보 (학번: 비밀번호)
+ADMIN_CREDS = {
+    "60231783": "0422",
+    "60231751": "0726"
+}
 
 
 def now() -> datetime:
@@ -44,7 +46,6 @@ def valid_student_id(value: str) -> bool:
 
 @st.cache_resource
 def db():
-    """Streamlit Secrets에서만 서비스 계정 키를 읽어 Firestore를 연결한다."""
     try:
         key = json.loads(st.secrets["firebase_service_account"])
     except (KeyError, json.JSONDecodeError):
@@ -82,7 +83,7 @@ def get_post(client, post_id: str) -> dict | None:
     if not snapshot.exists:
         return None
     post = post_data(snapshot)
-    if post.get("expires_at") and post["expires_at"] <= now():
+    if post.get("expires_at") and post.get("expires_at") <= now():
         snapshot.reference.delete()
         return None
     return post
@@ -92,24 +93,19 @@ def make_post(client, user: str, title: str, body: str, departure: str, destinat
               departure_at: datetime, max_people: int, bank: str, account: str) -> str:
     reference = client.collection("posts").document()
     created = now()
+    # 글 작성 시점으로부터 정확히 48시간 뒤로 만료 시간 설정
+    expires_at = created + timedelta(hours=48)
+    
     reference.set({
         "author_id": user, "title": title.strip(), "content": body.strip(),
         "departure_place": departure.strip(), "destination": destination.strip(),
         "departure_at": departure_at.astimezone(UTC), "max_people": max_people,
         "bank_name": bank.strip(), "account_number": account.strip(), "created_at": created,
-        "all_paid_at": None, "expires_at": None,
+        "expires_at": expires_at, "total_fare": 0,
         "participants": {user: {"student_id": user, "is_host": True, "joined_at": created,
                                   "arrived_at": None, "paid_at": None}},
     })
     return reference.id
-
-
-def refresh_expiry(transaction, reference, post: dict) -> None:
-    """작성자를 제외한 모든 참여자가 송금하면 3시간 뒤에 만료 예약한다."""
-    guests = [p for p in post["participants"].values() if not p.get("is_host")]
-    if guests and all(p.get("paid_at") for p in guests) and not post.get("expires_at"):
-        paid_time = now()
-        transaction.update(reference, {"all_paid_at": paid_time, "expires_at": paid_time + timedelta(hours=3)})
 
 
 def join_post(client, post_id: str, user: str) -> tuple[bool, str]:
@@ -128,7 +124,7 @@ def join_post(client, post_id: str, user: str) -> tuple[bool, str]:
         if len(participants) >= post["max_people"]:
             return False, "모집 인원이 모두 찼습니다."
         participants[user] = {"student_id": user, "is_host": False, "joined_at": now(), "arrived_at": None, "paid_at": None}
-        transaction.update(reference, {"participants": participants, "all_paid_at": None, "expires_at": None})
+        transaction.update(reference, {"participants": participants})
         return True, "택시팟에 참여했습니다."
 
     return run(transaction)
@@ -146,9 +142,7 @@ def update_status(client, post_id: str, user: str, field: str) -> None:
         participant = dict(participants[user])
         participant[field] = now()
         participants[user] = participant
-        post["participants"] = participants
         transaction.update(reference, {"participants": participants})
-        refresh_expiry(transaction, reference, post)
 
     run(transaction)
 
@@ -167,9 +161,7 @@ def kick_unverified(client, post_id: str, author: str, target: str) -> tuple[boo
             return False, "학번 형식이 확인된 참여자는 내보낼 수 없습니다."
         participants = dict(post["participants"])
         participants.pop(target, None)
-        post["participants"] = participants
         transaction.update(reference, {"participants": participants})
-        refresh_expiry(transaction, reference, post)
         return True, f"{target} 참여자를 내보냈습니다."
 
     return run(transaction)
@@ -179,7 +171,6 @@ def css() -> None:
     st.markdown("""<style>
       .block-container{max-width:1080px;padding-top:2.4rem}.sub{color:#788292;font-size:.92rem}
       .card{border:1px solid #dce1e8;border-radius:12px;padding:1rem;margin:.65rem 0}.label{color:#7b8493;font-size:.76rem}.value{font-weight:650;color:#29384f;font-size:.93rem;overflow-wrap:anywhere}.box{background:#f8f8f6;border-radius:10px;padding:.8rem;min-height:82px}.tag{display:inline-block;padding:.16rem .5rem;border-radius:99px;margin-right:.2rem;font-size:.76rem}.join{background:#e9e4fb;color:#564798}.arrive{background:#fff0d7;color:#a8680b}.paid{background:#dff4e9;color:#237b55}.wait{background:#f1f2f5;color:#727987}.person{border:1px solid #dce1e8;border-radius:9px;padding:.7rem}.comment{border-bottom:1px solid #e7e9ed;padding:.7rem 0;white-space:pre-wrap;overflow-wrap:anywhere}h1,h2,h3{color:#17253d}div.stButton>button{border-radius:8px}
-      /* 새 택시팟 버튼 네이비색 적용 */
       div.stButton > button[kind="primary"] {background-color: #042557 !important; border-color: #042557 !important; color: white !important;}
       </style>""", unsafe_allow_html=True)
 
@@ -203,19 +194,39 @@ def profile() -> None:
     left, right = st.columns([5, 1])
     with left:
         with st.form("profile"):
-            # 🚨 1번 요청: 학번 저장란 근처에 경고 문구 추가
             st.caption("🚨 닉네임은 무조건 8자리 학번으로 입력해 주세요. (학번이 아닐 경우 작성자에 의해 강퇴될 수 있습니다)")
-            student = st.text_input("내 닉네임 (학번)", value=user(), placeholder="예: 60001234", disabled=locked,
-                                    help="저장 후 7일 동안 변경할 수 없습니다.")
+            
+            # 비밀번호 입력란 추가
+            col1, col2 = st.columns([2, 1])
+            with col1:
+                student = st.text_input("내 닉네임 (학번)", value=user(), placeholder="예: 60001234", disabled=locked, help="저장 후 7일 동안 변경할 수 없습니다.")
+            with col2:
+                password = st.text_input("비밀번호 (관리자 전용)", type="password", disabled=locked, placeholder="일반 유저는 공란")
+                
             if st.form_submit_button("학번 저장", use_container_width=True, disabled=locked):
-                st.session_state.student_id = student.strip()
-                st.session_state.student_id_locked_until = now() + timedelta(days=7)
-                st.rerun()
+                sid = student.strip()
+                if sid in ADMIN_CREDS:
+                    # 관리자 학번인 경우 비밀번호 검증
+                    if password.strip() == ADMIN_CREDS[sid]:
+                        st.session_state.student_id = sid
+                        st.session_state.is_admin = True
+                        st.session_state.student_id_locked_until = now() + timedelta(days=7)
+                        st.rerun()
+                    else:
+                        st.error("관리자 비밀번호가 틀렸습니다.")
+                else:
+                    # 일반 유저인 경우 그대로 저장
+                    st.session_state.student_id = sid
+                    st.session_state.is_admin = False
+                    st.session_state.student_id_locked_until = now() + timedelta(days=7)
+                    st.rerun()
     with right:
         if user():
             st.caption(f"현재: {user()}")
             st.caption("학번 확인" if valid_student_id(user()) else "학번 미확인")
-            if locked:
+            if st.session_state.get("is_admin", False):
+                st.caption("👑 최고 관리자 계정")
+            elif locked:
                 st.caption(f"변경 가능: {time_text(locked_until)}")
 
 
@@ -232,7 +243,32 @@ def header() -> None:
 
 def home(client) -> None:
     st.header("모든 택시팟")
-    st.caption("참여하기를 누르면 바로 참여자 현황과 댓글 화면으로 이동합니다.")
+    
+    with st.expander("📖 띵지고 사용설명서 (처음 오셨다면 꼭 읽어주세요!)"):
+        st.markdown("""
+        **1. 시작하기 전 필수 세팅**
+        * 화면 상단에 본인의 **명지대 학번(8자리 숫자)**을 닉네임으로 저장해 주세요.
+        * 학번이 아닐 경우, 택시팟 작성자(방장)에 의해 언제든 강퇴당할 수 있습니다.
+        
+        **2. 택시팟 모이기 & 소통하기**
+        * 원하는 시간과 장소의 택시팟에 '참여하기'를 누릅니다.
+        * 상세 화면의 **'댓글'** 기능을 활용해 현재 위치나 입고 있는 옷 등 변동 상황을 빠르게 공유하세요.
+        * 모임 장소에 도착하면 **'도착 완료'** 버튼을 눌러주세요.
+        
+        **3. 하차 및 자동 정산 (가장 중요!)**
+        * 목적지에 내리기 직전, 글 작성자(방장)가 택시 미터기 총액을 입력합니다.
+        * 자동으로 계산된 **1인당 송금액**을 확인하고, **'토스'**나 **'카카오 T'** 버튼을 눌러 작성자에게 송금합니다.
+        * 송금을 마친 분은 반드시 **'송금 완료'** 버튼을 눌러 상태를 변경해 주세요. (방장은 돈을 받는 사람이므로 누르지 않습니다.)
+        """)
+        
+        # ex1.jpg, ex2.jpg 사진 2장 연달아 띄우기
+        try:
+            st.image("ex1.jpg", caption="[참고] 사용 예시 1")
+            st.image("ex2.jpg", caption="[참고] 사용 예시 2")
+        except:
+            pass
+
+    st.caption("참여하기를 누르면 바로 참여자 현황과 댓글 화면으로 이동합니다. (모든 글은 작성 48시간 뒤 자동 삭제됩니다)")
     posts = live_posts(client)
     if not posts:
         st.info("아직 열린 택시팟이 없어요.")
@@ -282,23 +318,52 @@ def badges(p: dict) -> str:
 def detail(client) -> None:
     post = get_post(client, st.session_state.get("post_id", ""))
     if not post: st.warning("이 택시팟은 사라졌습니다."); return
-    if st.button("← 목록으로"): st.session_state.view="home"; st.rerun()
+    
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        if st.button("← 목록으로"): st.session_state.view="home"; st.rerun()
+    with col2:
+        # 로그인 세션이 관리자일 때만 권한 부여
+        if st.session_state.get("is_admin", False):
+            if st.button("🚨 관리자 권한으로 이 택시팟 강제 삭제", key="admin_delete"):
+                client.collection("posts").document(post["id"]).delete()
+                st.session_state.view="home"
+                st.rerun()
+
     st.header(post["title"]); st.write(post["content"]); st.caption(f'글 작성자: {post["author_id"]}')
     values=[("출발 장소",post["departure_place"]),("도착 장소",post["destination"]),("출발 시간",time_text(post["departure_at"])),("모인 인원",f'{post["participant_count"]}/{post["max_people"]}명'),("송금 계좌",f'{post["bank_name"]} {post["account_number"]}')]
     for col,(label,value) in zip(st.columns(5),values):
         with col: st.markdown(f'<div class="box"><div class="label">{label}</div><div class="value">{html.escape(value)}</div></div>',unsafe_allow_html=True)
     
-    # 🚨 3번 요청: 토스 버튼 옆에 카카오택시(카카오 T) 버튼 나란히 추가
+    st.divider()
+    st.subheader("💰 정산하기")
+    
+    if post["author_id"] == user():
+        calc_col1, calc_col2 = st.columns([3, 1])
+        with calc_col1:
+            fare_input = st.number_input("총 택시 요금을 입력하세요 (원)", min_value=0, value=post.get("total_fare", 0), step=100, label_visibility="collapsed")
+        with calc_col2:
+            if st.button("요금 공유하기", use_container_width=True):
+                client.collection("posts").document(post["id"]).update({"total_fare": fare_input})
+                st.rerun()
+                
+    total_fare = post.get("total_fare", 0)
+    if total_fare > 0 and post["participant_count"] > 0:
+        per_person = total_fare // post["participant_count"]
+        st.success(f"🚕 **총 요금:** {total_fare:,}원 ➔ 💸 **1인당 보내야 할 금액: {per_person:,}원** (총 {post['participant_count']}명 기준)")
+    else:
+        st.info("💡 도착 후 방장이 여기에 총 택시 요금을 입력하면, 1인당 송금액이 자동으로 계산됩니다.")
+
     btn_col1, btn_col2 = st.columns(2)
     with btn_col1:
         st.link_button("🔵 토스 앱으로 송금하기", "https://toss.im/", use_container_width=True)
     with btn_col2:
         st.link_button("🟡 카카오 T 앱 열기", "kakaot://", use_container_width=True)
     
-    if post.get("expires_at"): st.success(f'모든 참여자의 송금이 완료됐습니다. {time_text(post["expires_at"])}에 글이 사라집니다.')
+    if post.get("expires_at"):
+        st.info(f'이 게시글은 작성 후 48시간 뒤인 {time_text(post["expires_at"])}에 자동 삭제됩니다.')
+        
     st.divider(); st.subheader(f'참여자 {post["participant_count"]}명')
-    
-    # 🚨 2번 요청: 글 상세보기에도 학번 관련 경고 추가
     st.caption("⚠️ 주의: 참여자의 닉네임이 올바른 학번(8자리 숫자)이 아닐 경우, 작성자가 '학번 미확인 추방'을 할 수 있습니다.")
     
     participants=sorted(post["participants"].values(),key=lambda p:(not p.get("is_host"),p["joined_at"]))
@@ -336,7 +401,6 @@ def detail(client) -> None:
 def main() -> None:
     css(); client=db()
     
-    # 3000밀리초(3초)마다 자동 새로고침 실행
     st_autorefresh(interval=3000, key="data_refresh")
     
     if "view" not in st.session_state: st.session_state.view="home"
