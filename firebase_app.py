@@ -157,6 +157,12 @@ def kick_user(client, post_id: str, author: str, target: str) -> tuple[bool, str
 
 def css() -> None:
     st.markdown("""<style>
+      /* Streamlit 기본 UI 완벽 숨김 (로고, 메뉴, 하단 워터마크) */
+      [data-testid="stHeader"] {display: none !important;}
+      [data-testid="stToolbar"] {display: none !important;}
+      #MainMenu {visibility: hidden !important;}
+      footer {visibility: hidden !important;}
+
       .block-container{max-width:1080px;padding-top:2.4rem}.sub{color:#788292;font-size:.92rem}
       .card{border:1px solid #dce1e8;border-radius:12px;padding:1rem;margin:.65rem 0}.label{color:#7b8493;font-size:.76rem}.value{font-weight:650;color:#29384f;font-size:.93rem;overflow-wrap:anywhere}.box{background:#f8f8f6;border-radius:10px;padding:.8rem;min-height:82px}.tag{display:inline-block;padding:.16rem .5rem;border-radius:99px;margin-right:.2rem;font-size:.76rem;font-weight:bold;}
       .t-join{background:#e9e4fb;color:#564798} .t-onway{background:#fff4e5;color:#b06000} .t-arrive{background:#e6f4ea;color:#137333} .t-paid{background:#fce8e6;color:#c5221f} .t-wait{background:#f1f2f5;color:#727987}
@@ -164,12 +170,14 @@ def css() -> None:
       h1,h2,h3{color:#17253d}div.stButton>button{border-radius:8px}
       div.stButton > button[kind="primary"] {background-color: #042557 !important; border-color: #042557 !important; color: white !important;}
       
-      /* 카카오톡 스타일 채팅 UI */
-      .chat-bg { background-color: #b2c7d9; padding: 1rem; border-radius: 12px; display: flex; flex-direction: column; gap: 10px; max-height: 400px; overflow-y: auto;}
+      /* 카카오톡 스타일 채팅 UI (배경색 회색으로 변경) */
+      .chat-bg { background-color: #ebedf0; padding: 1rem; border-radius: 12px; display: flex; flex-direction: column; gap: 10px; max-height: 400px; overflow-y: auto;}
       .msg-row { display: flex; flex-direction: column; width: 100%; }
       .msg-row.me { align-items: flex-end; }
       .msg-row.other { align-items: flex-start; }
-      .msg-author { font-size: 0.75rem; color: #555; margin-bottom: 2px; margin-left: 4px;}
+      .msg-author { font-size: 0.75rem; color: #555; margin-bottom: 2px; }
+      .msg-row.me .msg-author { margin-right: 4px; }
+      .msg-row.other .msg-author { margin-left: 4px; }
       .msg-bubble { padding: 8px 12px; border-radius: 12px; max-width: 75%; font-size: 0.9rem; word-break: break-word; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
       .msg-row.me .msg-bubble { background-color: #FEE500; color: #000; border-top-right-radius: 2px; }
       .msg-row.other .msg-bubble { background-color: #FFFFFF; color: #000; border-top-left-radius: 2px; }
@@ -185,15 +193,16 @@ def require_user() -> bool:
     return False
 
 def profile(client) -> None:
+    # 학번 수정 제한 기간을 7일에서 365일(1년)으로 연장
     if user() and "student_id_locked_until" not in st.session_state:
-        st.session_state.student_id_locked_until = now() + timedelta(days=7)
+        st.session_state.student_id_locked_until = now() + timedelta(days=365)
     locked_until = st.session_state.get("student_id_locked_until")
     locked = bool(locked_until and locked_until > now())
     
     left, right = st.columns([5, 1])
     with left:
         with st.form("profile"):
-            st.caption("🚨 첫 로그인 시 비밀번호로 회원가입. 닉네임은 8자리 학번 사용.")
+            st.caption("🚨 첫 로그인 시 비밀번호로 회원가입. 닉네임은 8자리 학번 사용 (1년간 수정 불가).")
             col1, col2 = st.columns([2, 1])
             with col1: student = st.text_input("내 닉네임 (학번)", value=user(), placeholder="예: 60001234", disabled=locked)
             with col2: password = st.text_input("비밀번호 (4자리 이상)", type="password", disabled=locked, placeholder="****")
@@ -205,7 +214,7 @@ def profile(client) -> None:
                 else:
                     if sid in ADMIN_CREDS:
                         if pwd == ADMIN_CREDS[sid]:
-                            st.session_state.update({"student_id": sid, "is_admin": True, "student_id_locked_until": now() + timedelta(days=7)})
+                            st.session_state.update({"student_id": sid, "is_admin": True, "student_id_locked_until": now() + timedelta(days=365)})
                             st.rerun()
                         else: st.error("관리자 비밀번호 오류")
                     else:
@@ -213,12 +222,12 @@ def profile(client) -> None:
                         user_doc = user_ref.get()
                         if user_doc.exists:
                             if user_doc.to_dict().get("password") == pwd:
-                                st.session_state.update({"student_id": sid, "is_admin": False, "student_id_locked_until": now() + timedelta(days=7)})
+                                st.session_state.update({"student_id": sid, "is_admin": False, "student_id_locked_until": now() + timedelta(days=365)})
                                 st.rerun()
                             else: st.error("비밀번호 오류 (이미 가입된 학번)")
                         else:
                             user_ref.set({"password": pwd})
-                            st.session_state.update({"student_id": sid, "is_admin": False, "student_id_locked_until": now() + timedelta(days=7)})
+                            st.session_state.update({"student_id": sid, "is_admin": False, "student_id_locked_until": now() + timedelta(days=365)})
                             st.rerun()
                             
     with right:
@@ -230,7 +239,8 @@ def header(client) -> None:
     a, b = st.columns([5, 1.35])
     with a:
         st.markdown('<h1 style="color:#042557; margin-bottom:0;">🚙 띵지고</h1>', unsafe_allow_html=True)
-        st.markdown('<p class="sub">빠르게 함께 출발하는 택시팟</p>', unsafe_allow_html=True)
+        # 부제목 문구 정확히 수정 반영
+        st.markdown('<p class="sub">셔틀버스를 놓친 명지대 학생들이 빠르게 함께 출발하는 택시팟</p>', unsafe_allow_html=True)
     with b:
         if st.button("＋ 새 택시팟", type="primary", use_container_width=True):
             st.session_state.view = "new"; st.rerun()
@@ -269,7 +279,6 @@ def new_post(client) -> None:
     if st.button("← 목록으로"): st.session_state.view="home"; st.rerun()
     st.header("새 택시팟 생성")
     with st.form("new"):
-        # 요청하신 순서대로 재배치, 내용은 text_area로 크기 자동 조절 지원
         title = st.text_input("제목")
         body = st.text_area("내용", height=100, placeholder="자유롭게 작성해주세요. 글이 길어지면 칸이 자동으로 늘어납니다.")
         
@@ -334,13 +343,12 @@ def detail(client) -> None:
     
     is_payment_req = post.get("is_payment_requested", False)
     
-    # 방장에게만 보이는 N빵 계산기
     if post["author_id"] == user():
         calc_col1, calc_col2 = st.columns([3, 1])
         with calc_col1:
             fare_input = st.number_input("총 택시 요금 입력 (원)", min_value=0, value=post.get("total_fare", 0), step=100)
         with calc_col2:
-            st.write("") # 간격 맞춤
+            st.write("")
             if st.button("요금 저장", use_container_width=True):
                 client.collection("posts").document(post["id"]).update({"total_fare": fare_input})
                 st.rerun()
@@ -349,11 +357,8 @@ def detail(client) -> None:
     if total_fare > 0 and post["participant_count"] > 0:
         st.success(f"💸 **1인당 보낼 금액: {total_fare // post['participant_count']:,}원** (총 {total_fare:,}원)")
         
-    # 방장이 송금 요청을 눌렀거나, 본인이 방장일 때만 계좌 노출
     if is_payment_req or post["author_id"] == user():
         st.info(f"🏦 **송금 계좌:** {post['bank_name']} {post['account_number']}")
-        
-        # 모바일 최적화 URL Scheme 앱 연결 (토스는 파랑, 카카오T는 진한 노랑)
         st.markdown('''
             <div style="display: flex; gap: 10px; margin-top: 10px;">
                 <a href="supertoss://send" style="flex:1; text-align:center; padding:12px; border-radius:8px; border:1px solid #0050FF; color:#0050FF; text-decoration:none; font-weight:bold; background-color:white;">토스 앱 연결</a>
@@ -382,29 +387,26 @@ def detail(client) -> None:
             
         with col_btn:
             if ident == user():
-                # 본인 상태 변경 버튼 
                 btns = st.columns(4 if not is_host_user else 3)
                 if not p.get("on_the_way_at"):
                     if btns[0].button("가는중", key=f'otw{ident}', use_container_width=True): update_status(client,post["id"],ident,"on_the_way_at"); st.rerun()
                 elif not p.get("arrived_at"):
                     if btns[1].button("도착", key=f'arr{ident}', use_container_width=True): update_status(client,post["id"],ident,"arrived_at"); st.rerun()
                 else:
-                    if is_host_user: # 방장 권한 버튼
+                    if is_host_user:
                         if not is_payment_req:
                             if btns[2].button("송금요청", key=f'req{ident}', use_container_width=True): 
                                 client.collection("posts").document(post["id"]).update({"is_payment_requested": True}); st.rerun()
-                    else: # 일반 유저 버튼
+                    else:
                         if not p.get("paid_at"):
                             if btns[2].button("송금완료", key=f'pay{ident}', use_container_width=True): update_status(client,post["id"],ident,"paid_at"); st.rerun()
                 
-                # 일반 유저만 취소 가능
                 if not is_host_user:
                     if btns[-1].button("❌취소", key=f'l{ident}', use_container_width=True):
                         ok, msg = leave_post(client, post["id"], ident)
                         if ok: st.rerun()
                         else: st.error(msg)
             
-            # 방장이 다른 유저를 볼 때 -> 추방 버튼 추가
             elif post["author_id"] == user() and not is_host_user:
                 if st.button("❌ 추방", key=f'k{ident}'):
                     ok, msg = kick_user(client, post["id"], user(), ident)
@@ -424,7 +426,8 @@ def detail(client) -> None:
         row_class = "me" if is_me else "other"
         
         html_code = f'<div class="msg-row {row_class}">'
-        if not is_me: html_code += f'<div class="msg-author">{html.escape(c["author_id"])}</div>'
+        # 작성자 학번 모든 말풍선에 표시 (수정됨)
+        html_code += f'<div class="msg-author">{html.escape(c["author_id"])}</div>'
         html_code += f'<div class="msg-bubble">{html.escape(c["body"])}<div class="msg-time">{time_text(c["created_at"])}</div></div></div>'
         st.markdown(html_code, unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
