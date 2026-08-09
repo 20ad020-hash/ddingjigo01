@@ -164,30 +164,38 @@ def css() -> None:
       footer {visibility: hidden !important;}
 
       .block-container{max-width:1080px;padding-top:2.4rem}.sub{color:#788292;font-size:.92rem}
-      .card{border:1px solid #dce1e8;border-radius:12px;padding:1rem;margin:.65rem 0}.label{color:#7b8493;font-size:.76rem}.value{font-weight:650;color:#29384f;font-size:.93rem;overflow-wrap:anywhere}.box{background:#f8f8f6;border-radius:10px;padding:.8rem;min-height:82px}.tag{display:inline-block;padding:.16rem .5rem;border-radius:99px;margin-right:.2rem;font-size:.76rem;font-weight:bold;}
-      .t-join{background:#e9e4fb;color:#564798} .t-onway{background:#fff4e5;color:#b06000} .t-arrive{background:#e6f4ea;color:#137333} .t-paid{background:#fce8e6;color:#c5221f} .t-wait{background:#f1f2f5;color:#727987}
-      .person{border:1px solid #dce1e8;border-radius:9px;padding:.7rem;margin-bottom:.5rem;}
+      .card{border:1px solid #dce1e8;border-radius:12px;padding:1rem;margin:.65rem 0}.label{color:#7b8493;font-size:.76rem}.value{font-weight:650;color:#29384f;font-size:.93rem;overflow-wrap:anywhere}.box{background:#f8f8f6;border-radius:10px;padding:.8rem;min-height:82px}
+      .person{border:1px solid #dce1e8;border-radius:9px;padding:.7rem;margin-bottom:.5rem; background-color:white;}
       h1,h2,h3{color:#17253d}div.stButton>button{border-radius:8px}
       
-      /* 기본 버튼 및 폼 제출 버튼 모두 네이비색 강제 적용 */
-      button[kind="primary"] {
-          background-color: #042557 !important; 
-          border-color: #042557 !important; 
-          color: white !important;
-      }
+      /* 기본 버튼 및 폼 제출 버튼 네이비색 강제 적용 */
+      button[kind="primary"] {background-color: #042557 !important; border-color: #042557 !important; color: white !important;}
       
       /* 모바일 화면에서 폼 내부 컬럼 2단 배치 강제 유지 */
       @media (max-width: 768px) {
-          [data-testid="stForm"] [data-testid="stHorizontalBlock"] {
-              flex-direction: row !important;
-              flex-wrap: nowrap !important;
-              gap: 10px !important;
-          }
-          [data-testid="stForm"] [data-testid="stHorizontalBlock"] > div {
-              flex: 1 1 50% !important;
-              min-width: 0 !important;
-          }
+          [data-testid="stForm"] [data-testid="stHorizontalBlock"] {flex-direction: row !important; flex-wrap: nowrap !important; gap: 10px !important;}
+          [data-testid="stForm"] [data-testid="stHorizontalBlock"] > div {flex: 1 1 50% !important; min-width: 0 !important;}
       }
+
+      /* 프로그레스 스텝퍼 (새로운 상태창 UI) */
+      .stepper-container { display: flex; align-items: flex-start; justify-content: space-between; width: 100%; margin-top: 4px; }
+      .step-wrapper { display: flex; flex-direction: column; align-items: center; width: 50px; z-index: 2; }
+      .step-icon { font-size: 1.1rem; height: 22px; display: flex; align-items: flex-end; margin-bottom: 2px; opacity: 0.5; filter: grayscale(100%); transition: 0.3s; }
+      .step-circle { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem; background-color: white; border: 3px solid #dce1e8; color: #dce1e8; margin-bottom: 4px; z-index: 2; transition: 0.3s; }
+      .step-label { font-size: 0.7rem; font-weight: 700; color: #a5b0c0; white-space: nowrap; transition: 0.3s; }
+      .step-line { flex-grow: 1; height: 4px; background-color: #dce1e8; margin: 34px -10px 0 -10px; z-index: 1; transition: 0.3s; }
+      
+      /* 스텝퍼 - 완료된 상태 (어두운 색) */
+      .step-wrapper.past .step-icon { filter: grayscale(100%); opacity: 1; color: #29384f; }
+      .step-wrapper.past .step-circle { border-color: #29384f; color: #29384f; }
+      .step-wrapper.past .step-label { color: #29384f; }
+      .step-line.past { background-color: #29384f; }
+      
+      /* 스텝퍼 - 현재 상태 (눈에 띄는 파란색) */
+      .step-wrapper.active .step-icon { filter: grayscale(0%); opacity: 1; text-shadow: 0 0 5px rgba(0, 122, 255, 0.3); }
+      .step-wrapper.active .step-circle { background-color: #007aff; border-color: #007aff; color: white; }
+      .step-wrapper.active .step-label { color: #007aff; font-weight: 800; }
+      .step-line.active { background-color: #007aff; }
 
       /* 카카오톡 스타일 채팅 UI */
       .chat-bg { background-color: #ebedf0; padding: 1rem; border-radius: 12px; display: flex; flex-direction: column; gap: 10px; max-height: 400px; overflow-y: auto;}
@@ -299,22 +307,18 @@ def new_post(client) -> None:
         title = st.text_input("제목")
         body = st.text_area("내용", height=100, placeholder="자유롭게 작성해주세요. 글이 길어지면 칸이 자동으로 늘어납니다.")
         
-        # 장소 2칸
         a, b = st.columns(2)
         with a: departure = st.text_input("출발 장소")
         with b: destination = st.text_input("도착 장소")
         
-        # 날짜/시간 2칸 (CSS에 의해 모바일에서도 가로 유지)
         c, d = st.columns(2)
         with c: day = st.date_input("출발 날짜", value=date.today())
         with d: clock = st.time_input("출발 시간", value=time(10,30))
         
-        # 은행명/계좌번호 2칸 (CSS에 의해 모바일에서도 가로 유지)
         e, f = st.columns(2)
         with e: bank = st.text_input("은행명")
         with f: account = st.text_input("계좌번호")
         
-        # 모일 사람 수는 깨지지 않도록 단독으로 분리
         maximum = st.selectbox("모일 사람 수", [1,2,3,4], index=3)
         
         submitted = st.form_submit_button("택시팟 생성", type="primary", use_container_width=True)
@@ -325,17 +329,49 @@ def new_post(client) -> None:
         post_id = make_post(client,user(),title,body,departure,destination,datetime.combine(day,clock,tzinfo=KST),maximum,bank,account)
         st.session_state.view="detail"; st.session_state.post_id=post_id; st.rerun()
 
-
-def badges(p: dict, is_host: bool, payment_requested: bool) -> str:
-    html_str = '<span class="tag t-join">참여</span>'
-    html_str += '<span class="tag t-onway">가는 중</span>' if p.get("on_the_way_at") else '<span class="tag t-wait">출발 전</span>'
-    html_str += '<span class="tag t-arrive">도착 완료</span>' if p.get("arrived_at") else '<span class="tag t-wait">도착 전</span>'
-    
+def render_stepper(p: dict, is_host: bool, payment_requested: bool) -> str:
+    """기존 badges 태그 대신, 직관적인 4단계 프로그레스 타임라인 UI를 렌더링합니다."""
+    # 유저 상태 파악 (1~4단계)
     if is_host:
-        html_str += '<span class="tag t-paid">송금요청 완료</span>' if payment_requested else '<span class="tag t-wait">송금요청 전</span>'
+        if payment_requested: lvl = 4
+        elif p.get("arrived_at"): lvl = 3
+        elif p.get("on_the_way_at"): lvl = 2
+        else: lvl = 1
+        label4 = "송금요청"
     else:
-        html_str += '<span class="tag t-paid">송금 완료</span>' if p.get("paid_at") else '<span class="tag t-wait">송금 전</span>'
-    return html_str
+        if p.get("paid_at"): lvl = 4
+        elif p.get("arrived_at"): lvl = 3
+        elif p.get("on_the_way_at"): lvl = 2
+        else: lvl = 1
+        label4 = "송금완료"
+
+    labels = ["참여", "가는 중", "도착", label4]
+    icons = ["👆", "🚙", "📍", "✔️"]
+    html_parts = ['<div class="stepper-container">']
+
+    for i in range(1, 5):
+        # 단계별 CSS 클래스 부여
+        if i < lvl: step_class = "past"
+        elif i == lvl: step_class = "active"
+        else: step_class = "future"
+
+        html_parts.append(f'''
+            <div class="step-wrapper {step_class}">
+                <div class="step-icon">{icons[i-1]}</div>
+                <div class="step-circle">{i}</div>
+                <div class="step-label">{labels[i-1]}</div>
+            </div>
+        ''')
+
+        # 연결선 추가 (마지막 단계 제외)
+        if i < 4:
+            if i < lvl: line_class = "past"
+            elif i == lvl: line_class = "active"
+            else: line_class = "future"
+            html_parts.append(f'<div class="step-line {line_class}"></div>')
+
+    html_parts.append('</div>')
+    return "".join(html_parts)
 
 def detail(client) -> None:
     is_admin = st.session_state.get("is_admin", False)
@@ -399,15 +435,18 @@ def detail(client) -> None:
         ident = p["student_id"]
         is_host_user = p.get("is_host", False)
         
-        col_name, col_badge, col_btn = st.columns([2.5, 3.5, 4.0])
+        # UI 비율 조정: 스텝퍼 디자인을 위해 중앙 공간(col_badge)을 더 넓게 확보합니다.
+        col_name, col_badge, col_btn = st.columns([1.6, 5.2, 3.2])
         
         with col_name:
-            st.markdown(f'<div class="person" style="border:none; padding:0;">👤 <b>{html.escape(ident)}</b>{" 👑(방장)" if is_host_user else ""}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="person" style="border:none; padding:0; margin-top: 8px;">👤 <b>{html.escape(ident)}</b>{"<br>👑(방장)" if is_host_user else ""}</div>', unsafe_allow_html=True)
             
         with col_badge:
-            st.markdown(f'<div>{badges(p, is_host_user, is_payment_req)}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div>{render_stepper(p, is_host_user, is_payment_req)}</div>', unsafe_allow_html=True)
             
         with col_btn:
+            # 윗부분 여백을 줘서 스텝퍼와 높이를 맞춤
+            st.markdown('<div style="height: 12px;"></div>', unsafe_allow_html=True)
             if ident == user():
                 btns = st.columns(4 if not is_host_user else 3)
                 if not p.get("on_the_way_at"):
