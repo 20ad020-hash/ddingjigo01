@@ -177,22 +177,19 @@ def css() -> None:
           [data-testid="stForm"] [data-testid="stHorizontalBlock"] > div {flex: 1 1 50% !important; min-width: 0 !important;}
       }
 
-      /* 프로그레스 스텝퍼 (새로운 상태창 UI) */
-      .stepper-container { display: flex; align-items: flex-start; justify-content: space-between; width: 100%; margin-top: 4px; }
+      /* 프로그레스 스텝퍼 (아이콘 제거 및 중앙 정렬) */
+      .stepper-container { display: flex; align-items: flex-start; justify-content: space-between; width: 100%; margin-top: 10px; }
       .step-wrapper { display: flex; flex-direction: column; align-items: center; width: 50px; z-index: 2; }
-      .step-icon { font-size: 1.1rem; height: 22px; display: flex; align-items: flex-end; margin-bottom: 2px; opacity: 0.5; filter: grayscale(100%); transition: 0.3s; }
-      .step-circle { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem; background-color: white; border: 3px solid #dce1e8; color: #dce1e8; margin-bottom: 4px; z-index: 2; transition: 0.3s; }
+      .step-circle { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem; background-color: white; border: 3px solid #dce1e8; color: #dce1e8; margin-bottom: 6px; z-index: 2; transition: 0.3s; }
       .step-label { font-size: 0.7rem; font-weight: 700; color: #a5b0c0; white-space: nowrap; transition: 0.3s; }
-      .step-line { flex-grow: 1; height: 4px; background-color: #dce1e8; margin: 34px -10px 0 -10px; z-index: 1; transition: 0.3s; }
+      .step-line { flex-grow: 1; height: 4px; background-color: #dce1e8; margin: 11px -10px 0 -10px; z-index: 1; transition: 0.3s; }
       
       /* 스텝퍼 - 완료된 상태 (어두운 색) */
-      .step-wrapper.past .step-icon { filter: grayscale(100%); opacity: 1; color: #29384f; }
       .step-wrapper.past .step-circle { border-color: #29384f; color: #29384f; }
       .step-wrapper.past .step-label { color: #29384f; }
       .step-line.past { background-color: #29384f; }
       
       /* 스텝퍼 - 현재 상태 (눈에 띄는 파란색) */
-      .step-wrapper.active .step-icon { filter: grayscale(0%); opacity: 1; text-shadow: 0 0 5px rgba(0, 122, 255, 0.3); }
       .step-wrapper.active .step-circle { background-color: #007aff; border-color: #007aff; color: white; }
       .step-wrapper.active .step-label { color: #007aff; font-weight: 800; }
       .step-line.active { background-color: #007aff; }
@@ -330,8 +327,7 @@ def new_post(client) -> None:
         st.session_state.view="detail"; st.session_state.post_id=post_id; st.rerun()
 
 def render_stepper(p: dict, is_host: bool, payment_requested: bool) -> str:
-    """기존 badges 태그 대신, 직관적인 4단계 프로그레스 타임라인 UI를 렌더링합니다."""
-    # 유저 상태 파악 (1~4단계)
+    """아이콘이 제거된 심플한 4단계 프로그레스 타임라인 UI를 렌더링합니다."""
     if is_host:
         if payment_requested: lvl = 4
         elif p.get("arrived_at"): lvl = 3
@@ -349,20 +345,18 @@ def render_stepper(p: dict, is_host: bool, payment_requested: bool) -> str:
     html_parts = ['<div class="stepper-container">']
 
     for i in range(1, 5):
-        # 단계별 CSS 클래스 부여
         if i < lvl: step_class = "past"
         elif i == lvl: step_class = "active"
         else: step_class = "future"
 
+        # 아이콘 태그를 제외하고 동그라미 번호와 라벨만 렌더링
         html_parts.append(f'''
             <div class="step-wrapper {step_class}">
-                <div class="step-icon">{icons[i-1]}</div>
                 <div class="step-circle">{i}</div>
                 <div class="step-label">{labels[i-1]}</div>
             </div>
         ''')
 
-        # 연결선 추가 (마지막 단계 제외)
         if i < 4:
             if i < lvl: line_class = "past"
             elif i == lvl: line_class = "active"
@@ -434,7 +428,6 @@ def detail(client) -> None:
         ident = p["student_id"]
         is_host_user = p.get("is_host", False)
         
-        # UI 비율 조정: 스텝퍼 디자인을 위해 중앙 공간(col_badge)을 더 넓게 확보합니다.
         col_name, col_badge, col_btn = st.columns([1.6, 5.2, 3.2])
         
         with col_name:
@@ -444,7 +437,6 @@ def detail(client) -> None:
             st.markdown(f'<div>{render_stepper(p, is_host_user, is_payment_req)}</div>', unsafe_allow_html=True)
             
         with col_btn:
-            # 윗부분 여백을 줘서 스텝퍼와 높이를 맞춤
             st.markdown('<div style="height: 12px;"></div>', unsafe_allow_html=True)
             if ident == user():
                 btns = st.columns(4 if not is_host_user else 3)
