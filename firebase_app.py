@@ -171,25 +171,52 @@ def css() -> None:
       /* 기본 버튼 및 폼 제출 버튼 네이비색 강제 적용 */
       button[kind="primary"] {background-color: #042557 !important; border-color: #042557 !important; color: white !important;}
       
-      /* 모바일 화면에서 폼 내부 컬럼 2단 배치 강제 유지 */
+      /* 폼 내부 컬럼 2단 배치 강제 유지 */
       @media (max-width: 768px) {
           [data-testid="stForm"] [data-testid="stHorizontalBlock"] {flex-direction: row !important; flex-wrap: nowrap !important; gap: 10px !important;}
           [data-testid="stForm"] [data-testid="stHorizontalBlock"] > div {flex: 1 1 50% !important; min-width: 0 !important;}
       }
 
-      /* 프로그레스 스텝퍼 (아이콘 제거 및 중앙 정렬) */
+      /* 🌟 학번 + 추방버튼 모바일에서 같은 줄 강제 유지 및 버튼 작게 🌟 */
+      div.element-container:has(.name-kick-marker) + div.element-container > div[data-testid="stHorizontalBlock"] {
+          flex-direction: row !important;
+          flex-wrap: nowrap !important;
+          align-items: center !important;
+          gap: 4px !important;
+      }
+      div.element-container:has(.name-kick-marker) + div.element-container > div[data-testid="stHorizontalBlock"] .stButton > button {
+          padding: 0 6px !important;
+          font-size: 0.7rem !important;
+          min-height: 26px !important;
+          height: 26px !important;
+          background-color: #ff4b4b !important;
+          border-color: #ff4b4b !important;
+          color: white !important;
+          width: auto !important;
+      }
+      
+      /* 🌟 유저 액션 버튼(도착, 송금 등) 모바일 가로 유지 🌟 */
+      div.element-container:has(.action-btn-marker) + div.element-container > div[data-testid="stHorizontalBlock"] {
+          flex-direction: row !important;
+          flex-wrap: nowrap !important;
+          gap: 4px !important;
+      }
+      div.element-container:has(.action-btn-marker) + div.element-container > div[data-testid="stHorizontalBlock"] .stButton > button {
+          padding: 0 2px !important;
+          font-size: 0.75rem !important;
+      }
+
+      /* 프로그레스 스텝퍼 */
       .stepper-container { display: flex; align-items: flex-start; justify-content: space-between; width: 100%; margin-top: 10px; }
       .step-wrapper { display: flex; flex-direction: column; align-items: center; width: 50px; z-index: 2; }
       .step-circle { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem; background-color: white; border: 3px solid #dce1e8; color: #dce1e8; margin-bottom: 6px; z-index: 2; transition: 0.3s; }
       .step-label { font-size: 0.7rem; font-weight: 700; color: #a5b0c0; white-space: nowrap; transition: 0.3s; }
       .step-line { flex-grow: 1; height: 4px; background-color: #dce1e8; margin: 11px -10px 0 -10px; z-index: 1; transition: 0.3s; }
       
-      /* 스텝퍼 - 완료된 상태 (어두운 색) */
       .step-wrapper.past .step-circle { border-color: #29384f; color: #29384f; }
       .step-wrapper.past .step-label { color: #29384f; }
       .step-line.past { background-color: #29384f; }
       
-      /* 스텝퍼 - 현재 상태 (눈에 띄는 파란색) */
       .step-wrapper.active .step-circle { background-color: #007aff; border-color: #007aff; color: white; }
       .step-wrapper.active .step-label { color: #007aff; font-weight: 800; }
       .step-line.active { background-color: #007aff; }
@@ -427,32 +454,35 @@ def detail(client) -> None:
         ident = p["student_id"]
         is_host_user = p.get("is_host", False)
         
-        # 이름+추방버튼이 들어갈 열(col_name) 크기를 넓히고 비율 조정
-        col_name, col_badge, col_btn = st.columns([2.4, 4.8, 2.8])
+        col_name, col_badge, col_btn = st.columns([3.2, 4.3, 2.5])
         
         with col_name:
-            if post["author_id"] == user() and not is_host_user:
-                # 방장이 다른 사람을 볼 때: 이름과 추방 버튼을 가로로 배치
-                sub1, sub2 = st.columns([1.2, 1.2])
-                with sub1:
-                    st.markdown(f'<div class="person" style="border:none; padding:0; margin-top: 8px; white-space:nowrap;">👤 <b>{html.escape(ident)}</b></div>', unsafe_allow_html=True)
-                with sub2:
-                    st.markdown('<div style="height: 2px;"></div>', unsafe_allow_html=True)
-                    if st.button("❌ 추방", key=f'k{ident}', use_container_width=True):
+            if is_host_user:
+                # 방장 본인: 학번 바로 옆에 뱃지 표시
+                st.markdown(f'<div style="margin-top: 12px; font-size:0.95rem; white-space:nowrap;">👤 <b>{html.escape(ident)}</b> <span style="font-size:0.7rem; color:#e67e22; font-weight:800; background:#fef0d9; padding:2px 6px; border-radius:10px;">👑방장</span></div>', unsafe_allow_html=True)
+            elif post["author_id"] == user():
+                # 방장이 일반 참가자 볼 때: CSS 마커로 학번과 추방 버튼 가로 고정
+                st.markdown('<div class="name-kick-marker"></div>', unsafe_allow_html=True)
+                c_id, c_btn = st.columns([1.6, 1.4])
+                with c_id:
+                    st.markdown(f'<div style="margin-top: 4px; font-size:0.95rem; white-space:nowrap;">👤 <b>{html.escape(ident)}</b></div>', unsafe_allow_html=True)
+                with c_btn:
+                    if st.button("❌추방", key=f'k{ident}', help="이 참가자를 추방합니다"):
                         ok, msg = kick_user(client, post["id"], user(), ident)
                         if ok: st.rerun()
                         else: st.error(msg)
             else:
-                # 본인이거나 방장 본인인 경우
-                st.markdown(f'<div class="person" style="border:none; padding:0; margin-top: 8px;">👤 <b>{html.escape(ident)}</b>{"<br>👑(방장)" if is_host_user else ""}</div>', unsafe_allow_html=True)
+                # 일반 참가자가 다른 참가자 볼 때
+                st.markdown(f'<div style="margin-top: 12px; font-size:0.95rem; white-space:nowrap;">👤 <b>{html.escape(ident)}</b></div>', unsafe_allow_html=True)
             
         with col_badge:
             st.markdown(f'<div>{render_stepper(p, is_host_user, is_payment_req)}</div>', unsafe_allow_html=True)
             
         with col_btn:
-            st.markdown('<div style="height: 12px;"></div>', unsafe_allow_html=True)
-            # 본인 상태 변경 및 취소 버튼
+            st.markdown('<div style="height: 10px;"></div>', unsafe_allow_html=True)
             if ident == user():
+                # 상태 변경 버튼들: CSS 마커로 모바일에서 가로 유지
+                st.markdown('<div class="action-btn-marker"></div>', unsafe_allow_html=True)
                 btns = st.columns(4 if not is_host_user else 3)
                 if not p.get("on_the_way_at"):
                     if btns[0].button("가는중", key=f'otw{ident}', use_container_width=True): update_status(client,post["id"],ident,"on_the_way_at"); st.rerun()
@@ -468,7 +498,7 @@ def detail(client) -> None:
                             if btns[2].button("송금완료", key=f'pay{ident}', use_container_width=True): update_status(client,post["id"],ident,"paid_at"); st.rerun()
                 
                 if not is_host_user:
-                    if btns[-1].button("❌취소", key=f'l{ident}', use_container_width=True):
+                    if btns[-1].button("취소", key=f'l{ident}', use_container_width=True):
                         ok, msg = leave_post(client, post["id"], ident)
                         if ok: st.rerun()
                         else: st.error(msg)
