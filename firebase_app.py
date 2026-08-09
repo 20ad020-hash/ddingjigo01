@@ -170,33 +170,45 @@ def css() -> None:
       /* 기본 버튼 및 폼 제출 버튼 네이비색 강제 적용 */
       button[kind="primary"] {background-color: #042557 !important; border-color: #042557 !important; color: white !important;}
       
-      /* 폼 내부 컬럼 2단 배치 강제 유지 */
-      @media (max-width: 768px) {
+      /* 모바일 화면 강제 가로 배치 CSS (매우 강력하게 적용) */
+      @media (max-width: 1024px) {
+          /* 새 택시팟 만들기 폼 가로 유지 */
           [data-testid="stForm"] [data-testid="stHorizontalBlock"] {flex-direction: row !important; flex-wrap: nowrap !important; gap: 10px !important;}
           [data-testid="stForm"] [data-testid="stHorizontalBlock"] > div {flex: 1 1 50% !important; min-width: 0 !important;}
+          
+          /* 🌟 학번 + 추방 버튼 모바일에서 절대 줄바꿈 금지 🌟 */
+          div.element-container:has(.name-row-marker) + div.element-container > div[data-testid="stHorizontalBlock"] {
+              flex-direction: row !important;
+              flex-wrap: nowrap !important;
+              align-items: center !important;
+              justify-content: space-between !important;
+          }
+          div.element-container:has(.name-row-marker) + div.element-container > div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(1) {
+              width: auto !important;
+              flex: 1 1 auto !important;
+          }
+          div.element-container:has(.name-row-marker) + div.element-container > div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) {
+              width: auto !important;
+              flex: 0 0 auto !important;
+              display: flex !important;
+              justify-content: flex-end !important;
+          }
+
+          /* 🌟 유저 상태 변경 버튼(가는중, 도착 등) 모바일에서 절대 줄바꿈 금지 🌟 */
+          div.element-container:has(.action-btn-marker) + div.element-container > div[data-testid="stHorizontalBlock"] {
+              flex-direction: row !important;
+              flex-wrap: nowrap !important;
+              gap: 4px !important;
+          }
+          div.element-container:has(.action-btn-marker) + div.element-container > div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+              width: 100% !important;
+              flex: 1 1 auto !important;
+              min-width: 0 !important;
+          }
       }
 
-      /* 🌟 이름(학번)과 추방 버튼 동일 선상 배치 및 디자인 수정 🌟 */
-      div.element-container:has(.name-row-marker) + div.element-container > div[data-testid="stHorizontalBlock"] {
-          flex-direction: row !important;
-          flex-wrap: nowrap !important;
-          align-items: center !important;
-          justify-content: space-between !important;
-      }
-      div.element-container:has(.name-row-marker) + div.element-container > div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(1) {
-          flex: 1 1 auto !important;
-          min-width: 0 !important;
-      }
-      div.element-container:has(.name-row-marker) + div.element-container > div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) {
-          flex: 0 0 auto !important;
-          width: auto !important;
-          min-width: 70px !important;
-          display: flex !important;
-          justify-content: flex-end !important;
-      }
-      
-      /* 추방 버튼 작은 사이즈와 빨간 테두리 둥근 디자인 */
-      div.element-container:has(.name-row-marker) + div.element-container > div[data-testid="stHorizontalBlock"] .stButton > button {
+      /* 🌟 추방 버튼 디자인 (작고 빨간 네모 스타일) 🌟 */
+      div.element-container:has(.name-row-marker) + div.element-container button {
           background-color: white !important;
           border: 1px solid #ff4b4b !important;
           color: #ff4b4b !important;
@@ -205,16 +217,10 @@ def css() -> None:
           min-height: 28px !important;
           height: 28px !important;
           margin-top: 6px !important;
+          width: auto !important;
       }
-
-      /* 🌟 유저 액션 버튼(도착, 송금 등) 모바일 가로 유지 🌟 */
-      div.element-container:has(.action-btn-marker) + div.element-container > div[data-testid="stHorizontalBlock"] {
-          flex-direction: row !important;
-          flex-wrap: nowrap !important;
-          gap: 4px !important;
-      }
-      div.element-container:has(.action-btn-marker) + div.element-container > div[data-testid="stHorizontalBlock"] .stButton > button {
-          padding: 0 2px !important;
+      div.element-container:has(.action-btn-marker) + div.element-container button {
+          padding: 0 4px !important;
           font-size: 0.75rem !important;
       }
 
@@ -466,8 +472,8 @@ def detail(client) -> None:
         ident = p["student_id"]
         is_host_user = p.get("is_host", False)
         
-        # 1️⃣ 첫 번째 행: 학번(이름)과 추방 버튼이 위치할 가로 컨테이너
-        st.markdown('<div class="name-row-marker"></div>', unsafe_allow_html=True)
+        # 1️⃣ 첫 번째 행: 학번(이름)과 추방 버튼이 위치할 공간
+        st.markdown('<div class="name-row-marker" style="display:none;"></div>', unsafe_allow_html=True)
         row1_left, row1_right = st.columns([7, 3])
         
         with row1_left:
@@ -478,7 +484,7 @@ def detail(client) -> None:
                 
         with row1_right:
             if post["author_id"] == user() and not is_host_user:
-                if st.button("❌ 추방", key=f'k{ident}', use_container_width=True):
+                if st.button("❌ 추방", key=f'k{ident}'):
                     ok, msg = kick_user(client, post["id"], user(), ident)
                     if ok: st.rerun()
                     else: st.error(msg)
@@ -488,7 +494,7 @@ def detail(client) -> None:
         
         # 3️⃣ 세 번째 행: 유저 액션 버튼 (본인 것만 보임)
         if ident == user():
-            st.markdown('<div class="action-btn-marker"></div>', unsafe_allow_html=True)
+            st.markdown('<div class="action-btn-marker" style="display:none;"></div>', unsafe_allow_html=True)
             btns = st.columns(4 if not is_host_user else 3)
             if not p.get("on_the_way_at"):
                 if btns[0].button("가는중", key=f'otw{ident}', use_container_width=True): update_status(client,post["id"],ident,"on_the_way_at"); st.rerun()
