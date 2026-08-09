@@ -170,13 +170,11 @@ def css() -> None:
       /* 기본 버튼 및 폼 제출 버튼 네이비색 강제 적용 */
       button[kind="primary"] {background-color: #042557 !important; border-color: #042557 !important; color: white !important;}
       
-      /* 모바일 화면 강제 가로 배치 CSS (매우 강력하게 적용) */
+      /* 모바일 화면 강제 가로 배치 CSS */
       @media (max-width: 1024px) {
-          /* 새 택시팟 만들기 폼 가로 유지 */
           [data-testid="stForm"] [data-testid="stHorizontalBlock"] {flex-direction: row !important; flex-wrap: nowrap !important; gap: 10px !important;}
           [data-testid="stForm"] [data-testid="stHorizontalBlock"] > div {flex: 1 1 50% !important; min-width: 0 !important;}
           
-          /* 🌟 학번 + 추방 버튼 모바일에서 절대 줄바꿈 금지 🌟 */
           div.element-container:has(.name-row-marker) + div.element-container > div[data-testid="stHorizontalBlock"] {
               flex-direction: row !important;
               flex-wrap: nowrap !important;
@@ -194,7 +192,6 @@ def css() -> None:
               justify-content: flex-end !important;
           }
 
-          /* 🌟 유저 상태 변경 버튼(가는중, 도착 등) 모바일에서 절대 줄바꿈 금지 🌟 */
           div.element-container:has(.action-btn-marker) + div.element-container > div[data-testid="stHorizontalBlock"] {
               flex-direction: row !important;
               flex-wrap: nowrap !important;
@@ -207,7 +204,7 @@ def css() -> None:
           }
       }
 
-      /* 🌟 추방 버튼 디자인 (작고 빨간 네모 스타일) 🌟 */
+      /* 추방 버튼 디자인 */
       div.element-container:has(.name-row-marker) + div.element-container button {
           background-color: white !important;
           border: 1px solid #ff4b4b !important;
@@ -315,6 +312,25 @@ def header(client) -> None:
 
 def home(client) -> None:
     is_admin = st.session_state.get("is_admin", False)
+    
+    # 🌟 복구된 사용설명서 파트 🌟
+    with st.expander("📖 띵지고 이용 가이드 (처음이신가요?)"):
+        st.markdown("""
+        **🚕 띵지고 100% 활용하는 법**
+        
+        1. **택시팟 참여 & 만들기**
+        원하는 시간대의 택시팟을 찾아 **[참여하기]**를 누르거나, 우측 상단 **[+ 새 택시팟]**을 눌러 직접 방을 만드세요. (닉네임은 학번으로 고정됩니다)
+        
+        2. **실시간 상태 변경 (매우 중요!)**
+        방에 입장하면 진행 상황에 따라 본인의 상태를 **[가는 중] ➔ [도착] ➔ [송금 완료]** 순서로 변경해주세요. (방장은 모두 도착 시 `송금 요청` 클릭)
+        
+        3. **실시간 채팅**
+        화면 하단의 채팅창을 통해 동승자들과 실시간으로 만날 위치를 정확하게 조율할 수 있습니다.
+        
+        4. **마찰 없는 간편 송금**
+        하차 후 방장이 택시비를 입력하고 송금을 요청하면, 숨겨져 있던 **계좌번호와 토스/카카오T 앱 연동 버튼**이 나타납니다. 1인당 자동 계산된 금액을 버튼 하나로 쉽게 송금하세요!
+        """)
+        
     st.header("모든 택시팟")
     posts = live_posts(client, is_admin)
     if not posts: st.info("아직 열린 택시팟이 없어요.")
@@ -372,7 +388,6 @@ def new_post(client) -> None:
         st.session_state.view="detail"; st.session_state.post_id=post_id; st.rerun()
 
 def render_stepper(p: dict, is_host: bool, payment_requested: bool) -> str:
-    """아이콘이 제거된 심플한 4단계 프로그레스 타임라인 UI를 렌더링합니다."""
     if is_host:
         if payment_requested: lvl = 4
         elif p.get("arrived_at"): lvl = 3
@@ -472,7 +487,6 @@ def detail(client) -> None:
         ident = p["student_id"]
         is_host_user = p.get("is_host", False)
         
-        # 1️⃣ 첫 번째 행: 학번(이름)과 추방 버튼이 위치할 공간
         st.markdown('<div class="name-row-marker" style="display:none;"></div>', unsafe_allow_html=True)
         row1_left, row1_right = st.columns([7, 3])
         
@@ -489,10 +503,8 @@ def detail(client) -> None:
                     if ok: st.rerun()
                     else: st.error(msg)
                     
-        # 2️⃣ 두 번째 행: 스텝퍼 (진행 상태창)
         st.markdown(f'<div style="margin-top: 5px; margin-bottom: 5px;">{render_stepper(p, is_host_user, is_payment_req)}</div>', unsafe_allow_html=True)
         
-        # 3️⃣ 세 번째 행: 유저 액션 버튼 (본인 것만 보임)
         if ident == user():
             st.markdown('<div class="action-btn-marker" style="display:none;"></div>', unsafe_allow_html=True)
             btns = st.columns(4 if not is_host_user else 3)
@@ -515,7 +527,6 @@ def detail(client) -> None:
                     if ok: st.rerun()
                     else: st.error(msg)
 
-        # 4️⃣ 구분선
         st.markdown("<hr style='border: 0; border-bottom: 1px solid #f1f2f5; margin: 1.5rem 0;'>", unsafe_allow_html=True)
 
     st.divider(); st.subheader("실시간 댓글")
