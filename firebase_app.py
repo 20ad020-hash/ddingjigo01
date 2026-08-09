@@ -157,7 +157,7 @@ def kick_user(client, post_id: str, author: str, target: str) -> tuple[bool, str
 
 def css() -> None:
     st.markdown("""<style>
-      /* Streamlit 기본 UI 완벽 숨김 (로고, 메뉴, 하단 워터마크) */
+      /* Streamlit 기본 UI 완벽 숨김 */
       [data-testid="stHeader"] {display: none !important;}
       [data-testid="stToolbar"] {display: none !important;}
       #MainMenu {visibility: hidden !important;}
@@ -168,9 +168,28 @@ def css() -> None:
       .t-join{background:#e9e4fb;color:#564798} .t-onway{background:#fff4e5;color:#b06000} .t-arrive{background:#e6f4ea;color:#137333} .t-paid{background:#fce8e6;color:#c5221f} .t-wait{background:#f1f2f5;color:#727987}
       .person{border:1px solid #dce1e8;border-radius:9px;padding:.7rem;margin-bottom:.5rem;}
       h1,h2,h3{color:#17253d}div.stButton>button{border-radius:8px}
-      div.stButton > button[kind="primary"] {background-color: #042557 !important; border-color: #042557 !important; color: white !important;}
       
-      /* 카카오톡 스타일 채팅 UI (배경색 회색으로 변경) */
+      /* 기본 버튼 및 폼 제출 버튼 모두 네이비색 강제 적용 */
+      button[kind="primary"] {
+          background-color: #042557 !important; 
+          border-color: #042557 !important; 
+          color: white !important;
+      }
+      
+      /* 모바일 화면에서 폼 내부 컬럼 2단 배치 강제 유지 */
+      @media (max-width: 768px) {
+          [data-testid="stForm"] [data-testid="stHorizontalBlock"] {
+              flex-direction: row !important;
+              flex-wrap: nowrap !important;
+              gap: 10px !important;
+          }
+          [data-testid="stForm"] [data-testid="stHorizontalBlock"] > div {
+              flex: 1 1 50% !important;
+              min-width: 0 !important;
+          }
+      }
+
+      /* 카카오톡 스타일 채팅 UI */
       .chat-bg { background-color: #ebedf0; padding: 1rem; border-radius: 12px; display: flex; flex-direction: column; gap: 10px; max-height: 400px; overflow-y: auto;}
       .msg-row { display: flex; flex-direction: column; width: 100%; }
       .msg-row.me { align-items: flex-end; }
@@ -193,7 +212,6 @@ def require_user() -> bool:
     return False
 
 def profile(client) -> None:
-    # 학번 수정 제한 기간을 7일에서 365일(1년)으로 연장
     if user() and "student_id_locked_until" not in st.session_state:
         st.session_state.student_id_locked_until = now() + timedelta(days=365)
     locked_until = st.session_state.get("student_id_locked_until")
@@ -239,7 +257,6 @@ def header(client) -> None:
     a, b = st.columns([5, 1.35])
     with a:
         st.markdown('<h1 style="color:#042557; margin-bottom:0;">🚙 띵지고</h1>', unsafe_allow_html=True)
-        # 부제목 문구 정확히 수정 반영
         st.markdown('<p class="sub">셔틀버스를 놓친 명지대 학생들이 빠르게 함께 출발하는 택시팟</p>', unsafe_allow_html=True)
     with b:
         if st.button("＋ 새 택시팟", type="primary", use_container_width=True):
@@ -282,18 +299,23 @@ def new_post(client) -> None:
         title = st.text_input("제목")
         body = st.text_area("내용", height=100, placeholder="자유롭게 작성해주세요. 글이 길어지면 칸이 자동으로 늘어납니다.")
         
+        # 장소 2칸
         a, b = st.columns(2)
         with a: departure = st.text_input("출발 장소")
         with b: destination = st.text_input("도착 장소")
         
+        # 날짜/시간 2칸 (CSS에 의해 모바일에서도 가로 유지)
         c, d = st.columns(2)
         with c: day = st.date_input("출발 날짜", value=date.today())
         with d: clock = st.time_input("출발 시간", value=time(10,30))
         
-        e, f, g = st.columns([1,1.4,.8])
+        # 은행명/계좌번호 2칸 (CSS에 의해 모바일에서도 가로 유지)
+        e, f = st.columns(2)
         with e: bank = st.text_input("은행명")
         with f: account = st.text_input("계좌번호")
-        with g: maximum = st.selectbox("모일 사람 수", [1,2,3,4], index=3)
+        
+        # 모일 사람 수는 깨지지 않도록 단독으로 분리
+        maximum = st.selectbox("모일 사람 수", [1,2,3,4], index=3)
         
         submitted = st.form_submit_button("택시팟 생성", type="primary", use_container_width=True)
         
@@ -426,7 +448,6 @@ def detail(client) -> None:
         row_class = "me" if is_me else "other"
         
         html_code = f'<div class="msg-row {row_class}">'
-        # 작성자 학번 모든 말풍선에 표시 (수정됨)
         html_code += f'<div class="msg-author">{html.escape(c["author_id"])}</div>'
         html_code += f'<div class="msg-bubble">{html.escape(c["body"])}<div class="msg-time">{time_text(c["created_at"])}</div></div></div>'
         st.markdown(html_code, unsafe_allow_html=True)
