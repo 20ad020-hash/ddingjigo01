@@ -346,7 +346,6 @@ def render_stepper(p: dict, is_host: bool, payment_requested: bool) -> str:
         label4 = "송금완료"
 
     labels = ["참여", "가는 중", "도착", label4]
-    icons = ["👆", "🚙", "📍", "✔️"]
     html_parts = ['<div class="stepper-container">']
 
     for i in range(1, 5):
