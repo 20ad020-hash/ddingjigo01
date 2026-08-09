@@ -349,7 +349,6 @@ def render_stepper(p: dict, is_host: bool, payment_requested: bool) -> str:
         elif i == lvl: step_class = "active"
         else: step_class = "future"
 
-        # 아이콘 태그를 제외하고 동그라미 번호와 라벨만 렌더링
         html_parts.append(f'''
             <div class="step-wrapper {step_class}">
                 <div class="step-circle">{i}</div>
@@ -428,16 +427,31 @@ def detail(client) -> None:
         ident = p["student_id"]
         is_host_user = p.get("is_host", False)
         
-        col_name, col_badge, col_btn = st.columns([1.6, 5.2, 3.2])
+        # 이름+추방버튼이 들어갈 열(col_name) 크기를 넓히고 비율 조정
+        col_name, col_badge, col_btn = st.columns([2.4, 4.8, 2.8])
         
         with col_name:
-            st.markdown(f'<div class="person" style="border:none; padding:0; margin-top: 8px;">👤 <b>{html.escape(ident)}</b>{"<br>👑(방장)" if is_host_user else ""}</div>', unsafe_allow_html=True)
+            if post["author_id"] == user() and not is_host_user:
+                # 방장이 다른 사람을 볼 때: 이름과 추방 버튼을 가로로 배치
+                sub1, sub2 = st.columns([1.2, 1.2])
+                with sub1:
+                    st.markdown(f'<div class="person" style="border:none; padding:0; margin-top: 8px; white-space:nowrap;">👤 <b>{html.escape(ident)}</b></div>', unsafe_allow_html=True)
+                with sub2:
+                    st.markdown('<div style="height: 2px;"></div>', unsafe_allow_html=True)
+                    if st.button("❌ 추방", key=f'k{ident}', use_container_width=True):
+                        ok, msg = kick_user(client, post["id"], user(), ident)
+                        if ok: st.rerun()
+                        else: st.error(msg)
+            else:
+                # 본인이거나 방장 본인인 경우
+                st.markdown(f'<div class="person" style="border:none; padding:0; margin-top: 8px;">👤 <b>{html.escape(ident)}</b>{"<br>👑(방장)" if is_host_user else ""}</div>', unsafe_allow_html=True)
             
         with col_badge:
             st.markdown(f'<div>{render_stepper(p, is_host_user, is_payment_req)}</div>', unsafe_allow_html=True)
             
         with col_btn:
             st.markdown('<div style="height: 12px;"></div>', unsafe_allow_html=True)
+            # 본인 상태 변경 및 취소 버튼
             if ident == user():
                 btns = st.columns(4 if not is_host_user else 3)
                 if not p.get("on_the_way_at"):
@@ -458,12 +472,6 @@ def detail(client) -> None:
                         ok, msg = leave_post(client, post["id"], ident)
                         if ok: st.rerun()
                         else: st.error(msg)
-            
-            elif post["author_id"] == user() and not is_host_user:
-                if st.button("❌ 추방", key=f'k{ident}'):
-                    ok, msg = kick_user(client, post["id"], user(), ident)
-                    if ok: st.rerun()
-                    else: st.error(msg)
 
     st.divider(); st.subheader("실시간 댓글")
     
