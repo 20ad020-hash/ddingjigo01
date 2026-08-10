@@ -168,6 +168,9 @@ def css() -> None:
       .card{border:1px solid #dce1e8;border-radius:12px;padding:1rem;margin:.65rem 0}.label{color:#7b8493;font-size:.76rem}.value{font-weight:650;color:#29384f;font-size:.93rem;overflow-wrap:anywhere}.box{background:#f8f8f6;border-radius:10px;padding:.8rem;min-height:82px}
       h1,h2,h3{color:#17253d}div.stButton>button{border-radius:8px}
       
+      /* 이미지 사이 여백 완전히 제거하여 이어붙이기 */
+      div[data-testid="stImage"] { margin-bottom: -1rem !important; }
+      
       /* 기본 버튼 및 폼 제출 버튼 네이비색 강제 적용 */
       button[kind="primary"] {background-color: #042557 !important; border-color: #042557 !important; color: white !important;}
       
@@ -311,11 +314,10 @@ def header(client) -> None:
             st.session_state.view = "new"; st.rerun()
     profile(client)
 
-def show_safe_image(filename: str, caption: str):
-    """이미지 파일이 존재할 경우에만 렌더링하여 에러를 방지합니다."""
+def show_safe_image(filename: str):
+    """캡션(텍스트)을 완전히 제거하여 사진들이 끊김 없이 자연스럽게 이어지도록 합니다."""
     if os.path.exists(filename):
-        # 최신 스트림릿 버전에 맞춰 use_column_width를 use_container_width로 수정했습니다!
-        st.image(filename, caption=caption, use_container_width=True)
+        st.image(filename, use_container_width=True)
     else:
         st.warning(f"'{filename}' 파일을 찾을 수 없습니다. 같은 폴더에 사진을 넣어주세요.")
 
@@ -329,7 +331,7 @@ def home(client) -> None:
         1. **택시팟 참여 & 만들기**
         원하는 시간대의 택시팟을 찾아 **[참여하기]**를 누르거나, 우측 상단 **[+ 새 택시팟]**을 눌러 직접 방을 만드세요. (닉네임은 학번으로 고정됩니다)
         
-        2. **실시간 상태 변경 (매우 중요!)**
+        2. **실시간 상태 변경 (매 중요!)**
         방에 입장하면 진행 상황에 따라 본인의 상태를 **[가는 중] ➔ [도착] ➔ [송금 완료]** 순서로 변경해주세요. (방장은 모두 도착 시 `송금 요청` 클릭)
         
         3. **실시간 채팅**
@@ -339,24 +341,26 @@ def home(client) -> None:
         하차 후 방장이 택시비를 입력하고 송금을 요청하면, 숨겨져 있던 **계좌번호와 토스/카카오T 앱 연동 버튼**이 나타납니다. 1인당 자동 계산된 금액을 버튼 하나로 쉽게 송금하세요!
         """)
         
-    # 🌟 올리신 깃허브 파일명에 맞게 확장자를 모두 .png로 수정했습니다 🌟
     with st.expander("🚌 셔틀버스 시간표 및 노선도"):
         tab1, tab2, tab3, tab4 = st.tabs(["평일(기흥역)", "평일(시내/명지대역)", "주말/공휴일", "계절학기"])
         
         with tab1:
-            show_safe_image("기흥역 통학버스 시간표(학기중평일).png", "기흥역 통학버스 시간표 (학기 중 평일)")
+            show_safe_image("기흥역 통학버스 시간표(학기중평일).png")
             
         with tab2:
-            show_safe_image("셔틀 노선(학기중평일).png", "명지대역 및 시내 셔틀 노선 (학기 중 평일)")
-            show_safe_image("셔틀 시간표(학기중평일1).png", "명지대역 및 시내 셔틀 시간표 (1)")
-            show_safe_image("셔틀 시간표(학기중평일2).png", "명지대역 및 시내 셔틀 시간표 (2)")
+            # 🌟 노선도만 깔끔하게 접고 펼칠 수 있도록 토글 추가 🌟
+            with st.expander("🗺️ 명지대역 및 시내 셔틀 노선도 보기"):
+                show_safe_image("셔틀 노선(학기중평일).png")
+            # 캡션이 제거되어 시간표 1, 2가 하나처럼 이어져 나옵니다.
+            show_safe_image("셔틀 시간표(학기중평일1).png")
+            show_safe_image("셔틀 시간표(학기중평일2).png")
             
         with tab3:
-            show_safe_image("셔틀시간표(학기중주말,공휴일,방학).png", "시내 셔틀 노선 및 시간표 (주말/공휴일/방학)")
+            show_safe_image("셔틀시간표(학기중주말,공휴일,방학).png")
             
         with tab4:
-            show_safe_image("셔틀 시간표(계절학기1).png", "명지대역 및 시내 셔틀 노선 및 시간표 (1)")
-            show_safe_image("셔틀 시간표(계절학기2).png", "명지대역 및 시내 셔틀 시간표 (2)")
+            show_safe_image("셔틀 시간표(계절학기1).png")
+            show_safe_image("셔틀 시간표(계절학기2).png")
         
     st.header("모든 택시팟")
     posts = live_posts(client, is_admin)
@@ -428,7 +432,7 @@ def render_stepper(p: dict, is_host: bool, payment_requested: bool) -> str:
         else: lvl = 1
         label4 = "송금완료"
 
-    labels = ["참여", "가는 중", "도착", label4]
+    labels = ["참 참여", "가는 중", "도착", label4]
     html_parts = ['<div class="stepper-container">']
 
     for i in range(1, 5):
