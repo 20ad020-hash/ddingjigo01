@@ -314,7 +314,8 @@ def header(client) -> None:
 def show_safe_image(filename: str, caption: str):
     """이미지 파일이 존재할 경우에만 렌더링하여 에러를 방지합니다."""
     if os.path.exists(filename):
-        st.image(filename, caption=caption, use_column_width=True)
+        # 최신 스트림릿 버전에 맞춰 use_column_width를 use_container_width로 수정했습니다!
+        st.image(filename, caption=caption, use_container_width=True)
     else:
         st.warning(f"'{filename}' 파일을 찾을 수 없습니다. 같은 폴더에 사진을 넣어주세요.")
 
@@ -338,24 +339,24 @@ def home(client) -> None:
         하차 후 방장이 택시비를 입력하고 송금을 요청하면, 숨겨져 있던 **계좌번호와 토스/카카오T 앱 연동 버튼**이 나타납니다. 1인당 자동 계산된 금액을 버튼 하나로 쉽게 송금하세요!
         """)
         
-    # 🌟 기흥역과 명지대역 셔틀을 분리한 4개 탭 구조 🌟
+    # 🌟 올리신 깃허브 파일명에 맞게 확장자를 모두 .png로 수정했습니다 🌟
     with st.expander("🚌 셔틀버스 시간표 및 노선도"):
         tab1, tab2, tab3, tab4 = st.tabs(["평일(기흥역)", "평일(시내/명지대역)", "주말/공휴일", "계절학기"])
         
         with tab1:
-            show_safe_image("기흥역 통학버스 시간표(학기중평일).jpg", "기흥역 통학버스 시간표 (학기 중 평일)")
+            show_safe_image("기흥역 통학버스 시간표(학기중평일).png", "기흥역 통학버스 시간표 (학기 중 평일)")
             
         with tab2:
-            show_safe_image("셔틀 노선(학기중평일).jpg", "명지대역 및 시내 셔틀 노선 (학기 중 평일)")
-            show_safe_image("셔틀 시간표(학기중평일1).jpg", "명지대역 및 시내 셔틀 시간표 (1)")
+            show_safe_image("셔틀 노선(학기중평일).png", "명지대역 및 시내 셔틀 노선 (학기 중 평일)")
+            show_safe_image("셔틀 시간표(학기중평일1).png", "명지대역 및 시내 셔틀 시간표 (1)")
             show_safe_image("셔틀 시간표(학기중평일2).png", "명지대역 및 시내 셔틀 시간표 (2)")
             
         with tab3:
             show_safe_image("셔틀시간표(학기중주말,공휴일,방학).png", "시내 셔틀 노선 및 시간표 (주말/공휴일/방학)")
             
         with tab4:
-            show_safe_image("셔틀 시간표(계절학기1).jpg", "명지대역 및 시내 셔틀 노선 및 시간표 (1)")
-            show_safe_image("셔틀 시간표(계절학기2).jpg", "명지대역 및 시내 셔틀 시간표 (2)")
+            show_safe_image("셔틀 시간표(계절학기1).png", "명지대역 및 시내 셔틀 노선 및 시간표 (1)")
+            show_safe_image("셔틀 시간표(계절학기2).png", "명지대역 및 시내 셔틀 시간표 (2)")
         
     st.header("모든 택시팟")
     posts = live_posts(client, is_admin)
