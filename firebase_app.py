@@ -221,15 +221,16 @@ def css() -> None:
           width: auto !important;
       }
       div.element-container:has(.action-btn-marker) + div.element-container button {
-          padding: 0 4px !important;
-          font-size: 0.75rem !important;
+          padding: 0 2px !important;
+          font-size: 0.7rem !important;
+          letter-spacing: -0.5px;
       }
 
       /* 프로그레스 스텝퍼 */
       .stepper-container { display: flex; align-items: flex-start; justify-content: space-between; width: 100%; margin-top: 10px; }
       .step-wrapper { display: flex; flex-direction: column; align-items: center; width: 50px; z-index: 2; }
       .step-circle { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem; background-color: white; border: 3px solid #dce1e8; color: #dce1e8; margin-bottom: 6px; z-index: 2; transition: 0.3s; }
-      .step-label { font-size: 0.7rem; font-weight: 700; color: #a5b0c0; white-space: nowrap; transition: 0.3s; }
+      .step-label { font-size: 0.65rem; font-weight: 700; color: #a5b0c0; white-space: nowrap; letter-spacing: -0.5px; transition: 0.3s; text-align: center; }
       .step-line { flex-grow: 1; height: 4px; background-color: #dce1e8; margin: 11px -10px 0 -10px; z-index: 1; transition: 0.3s; }
       
       .step-wrapper.past .step-circle { border-color: #29384f; color: #29384f; }
@@ -315,7 +316,6 @@ def header(client) -> None:
     profile(client)
 
 def show_safe_image(filename: str):
-    """캡션(텍스트)을 완전히 제거하여 사진들이 끊김 없이 자연스럽게 이어지도록 합니다."""
     if os.path.exists(filename):
         st.image(filename, use_container_width=True)
     else:
@@ -331,8 +331,8 @@ def home(client) -> None:
         1. **택시팟 참여 & 만들기**
         원하는 시간대의 택시팟을 찾아 **[참여하기]**를 누르거나, 우측 상단 **[+ 새 택시팟]**을 눌러 직접 방을 만드세요. (닉네임은 학번으로 고정됩니다)
         
-        2. **실시간 상태 변경 (매 중요!)**
-        방에 입장하면 진행 상황에 따라 본인의 상태를 **[가는 중] ➔ [도착] ➔ [송금 완료]** 순서로 변경해주세요. (방장은 모두 도착 시 `송금 요청` 클릭)
+        2. **실시간 상태 변경 (매우 중요!)**
+        방에 입장하면 진행 상황에 따라 본인의 상태를 **[가는 중] ➔ [출발지 도착완료] ➔ [송금 완료]** 순서로 변경해주세요. (방장은 모두 도착 시 `송금 요청` 클릭)
         
         3. **실시간 채팅**
         화면 하단의 채팅창을 통해 동승자들과 실시간으로 만날 위치를 정확하게 조율할 수 있습니다.
@@ -348,10 +348,8 @@ def home(client) -> None:
             show_safe_image("기흥역 통학버스 시간표(학기중평일).png")
             
         with tab2:
-            # 🌟 노선도만 깔끔하게 접고 펼칠 수 있도록 토글 추가 🌟
             with st.expander("🗺️ 명지대역 및 시내 셔틀 노선도 보기"):
                 show_safe_image("셔틀 노선(학기중평일).png")
-            # 캡션이 제거되어 시간표 1, 2가 하나처럼 이어져 나옵니다.
             show_safe_image("셔틀 시간표(학기중평일1).png")
             show_safe_image("셔틀 시간표(학기중평일2).png")
             
@@ -392,13 +390,22 @@ def home(client) -> None:
 def new_post(client) -> None:
     if st.button("← 목록으로"): st.session_state.view="home"; st.rerun()
     st.header("새 택시팟 생성")
+    
+    # 🌟 새 택시팟 생성 드롭다운 및 직접입력 기능 추가 🌟
     with st.form("new"):
         title = st.text_input("제목")
         body = st.text_area("내용", height=100, placeholder="자유롭게 작성해주세요. 글이 길어지면 칸이 자동으로 늘어납니다.")
         
+        dep_options = ["기흥역 5번 출구", "명지대역", "럭스나인 앞 정거장", "이마트 건너편 정거장", "직접 입력 ✍️"]
+        dest_options = ["명진당", "학생회관 앞", "3공학관", "건축관", "창조예술관", "함박관 앞", "명덕관", "기숙사 3동", "기숙사 4동", "기숙사 5동", "기흥역", "명지대역", "직접 입력 ✍️"]
+        
         a, b = st.columns(2)
-        with a: departure = st.text_input("출발 장소")
-        with b: destination = st.text_input("도착 장소")
+        with a: 
+            dep_sel = st.selectbox("출발 장소", dep_options)
+            dep_custom = st.text_input("출발 장소 직접 입력", placeholder="직접 입력을 선택했다면 여기에 적어주세요", label_visibility="collapsed")
+        with b: 
+            dest_sel = st.selectbox("도착 장소", dest_options)
+            dest_custom = st.text_input("도착 장소 직접 입력", placeholder="직접 입력을 선택했다면 여기에 적어주세요", label_visibility="collapsed")
         
         c, d = st.columns(2)
         with c: day = st.date_input("출발 날짜", value=date.today())
@@ -414,7 +421,15 @@ def new_post(client) -> None:
         
     if submitted:
         if not require_user(): return
-        if not all(x.strip() for x in [title,body,departure,destination,bank,account]): st.error("모든 항목을 입력해 주세요."); return
+        
+        # 사용자가 선택/입력한 최종 장소 처리
+        departure = dep_custom.strip() if "직접 입력" in dep_sel else dep_sel
+        destination = dest_custom.strip() if "직접 입력" in dest_sel else dest_sel
+        
+        if not all(x.strip() for x in [title,body,departure,destination,bank,account]): 
+            st.error("모든 항목을 입력해 주세요. (직접 입력을 선택하셨다면 텍스트 칸에 적어주셔야 합니다)")
+            return
+        
         post_id = make_post(client,user(),title,body,departure,destination,datetime.combine(day,clock,tzinfo=KST),maximum,bank,account)
         st.session_state.view="detail"; st.session_state.post_id=post_id; st.rerun()
 
@@ -432,7 +447,7 @@ def render_stepper(p: dict, is_host: bool, payment_requested: bool) -> str:
         else: lvl = 1
         label4 = "송금완료"
 
-    labels = ["참 참여", "가는 중", "도착", label4]
+    labels = ["참여", "가는 중", "출발지 도착완료", label4]
     html_parts = ['<div class="stepper-container">']
 
     for i in range(1, 5):
@@ -542,7 +557,7 @@ def detail(client) -> None:
             if not p.get("on_the_way_at"):
                 if btns[0].button("가는중", key=f'otw{ident}', use_container_width=True): update_status(client,post["id"],ident,"on_the_way_at"); st.rerun()
             elif not p.get("arrived_at"):
-                if btns[1].button("도착", key=f'arr{ident}', use_container_width=True): update_status(client,post["id"],ident,"arrived_at"); st.rerun()
+                if btns[1].button("출발지 도착완료", key=f'arr{ident}', use_container_width=True): update_status(client,post["id"],ident,"arrived_at"); st.rerun()
             else:
                 if is_host_user:
                     if not is_payment_req:
