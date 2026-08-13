@@ -610,3 +610,54 @@ def main() -> None:
     else: home(client)
 
 if __name__ == "__main__": main()
+# 💡 전제 조건:
+# post_data: 현재 보고 있는 게시글의 데이터 (딕셔너리 형태)
+# post_id: 현재 보고 있는 게시글의 Firestore 문서 ID
+# st.session_state['user_id']: 현재 로그인한 유저의 학번
+
+# 현재 로그인한 유저가 방장(작성자)인지 확인
+if st.session_state.get('user_id') == post_data.get('author_id'):
+    
+    # 수정 폼을 토글(접기/펴기) 형태로 제공
+    with st.expander("✏️ 게시글 수정하기"):
+        with st.form("edit_post_form"):
+            st.write("게시글 정보를 수정합니다.")
+            
+            # 기존 데이터를 기본값(value)으로 띄워줌
+            new_title = st.text_input("제목", value=post_data.get('title', ''))
+            new_content = st.text_area("내용", value=post_data.get('content', ''))
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                new_departure = st.text_input("출발지", value=post_data.get('departure_place', ''))
+            with col2:
+                new_destination = st.text_input("도착지", value=post_data.get('destination', ''))
+            
+            # 현재 참여 인원 파악 (최대 인원을 현재 인원보다 적게 수정하는 것을 방지하기 위함)
+            current_participants_count = len(post_data.get('participants', {}))
+            
+            new_max_people = st.number_input(
+                "최대 모집 인원", 
+                min_value=current_participants_count, # 현재 참여 인원수보다 적게는 수정 불가!
+                max_value=4, 
+                value=post_data.get('max_people', 4)
+            )
+            
+            # 수정 완료 버튼
+            submit_edit = st.form_submit_button("수정 내용 저장")
+            
+            if submit_edit:
+                try:
+                    # Firestore 문서 업데이트 (.update 메서드 사용)
+                    db.collection('posts').document(post_id).update({
+                        'title': new_title,
+                        'content': new_content,
+                        'departure_place': new_departure,
+                        'destination': new_destination,
+                        'max_people': new_max_people
+                    })
+                    st.success("✨ 게시글이 성공적으로 수정되었습니다!")
+                    st.rerun() # 화면 새로고침하여 수정된 내용 바로 반영
+                    
+                except Exception as e:
+                    st.error(f"수정 중 오류가 발생했습니다: {e}")
