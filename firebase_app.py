@@ -1,4 +1,4 @@
-"""띵지고 Firebase(공용) 실행 파일"""
+"""띵지고 Firebase(공용) 버전. 배포용 실행 파일입니다."""
 
 from __future__ import annotations
 import html
@@ -168,80 +168,34 @@ def css() -> None:
       .card{border:1px solid #dce1e8;border-radius:12px;padding:1rem;margin:.65rem 0}.label{color:#7b8493;font-size:.76rem}.value{font-weight:650;color:#29384f;font-size:.93rem;overflow-wrap:anywhere}.box{background:#f8f8f6;border-radius:10px;padding:.8rem;min-height:82px}
       h1,h2,h3{color:#17253d}div.stButton>button{border-radius:8px}
       
-      /* 이미지 사이 여백 완전히 제거하여 이어붙이기 */
       div[data-testid="stImage"] { margin-bottom: -1rem !important; }
-      
-      /* 기본 버튼 및 폼 제출 버튼 네이비색 강제 적용 */
       button[kind="primary"] {background-color: #042557 !important; border-color: #042557 !important; color: white !important;}
       
-      /* 모바일 화면 강제 가로 배치 CSS */
       @media (max-width: 1024px) {
           [data-testid="stForm"] [data-testid="stHorizontalBlock"] {flex-direction: row !important; flex-wrap: nowrap !important; gap: 10px !important;}
           [data-testid="stForm"] [data-testid="stHorizontalBlock"] > div {flex: 1 1 50% !important; min-width: 0 !important;}
-          
-          div.element-container:has(.name-row-marker) + div.element-container > div[data-testid="stHorizontalBlock"] {
-              flex-direction: row !important;
-              flex-wrap: nowrap !important;
-              align-items: center !important;
-              justify-content: space-between !important;
-          }
-          div.element-container:has(.name-row-marker) + div.element-container > div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(1) {
-              width: auto !important;
-              flex: 1 1 auto !important;
-          }
-          div.element-container:has(.name-row-marker) + div.element-container > div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) {
-              width: auto !important;
-              flex: 0 0 auto !important;
-              display: flex !important;
-              justify-content: flex-end !important;
-          }
-
-          div.element-container:has(.action-btn-marker) + div.element-container > div[data-testid="stHorizontalBlock"] {
-              flex-direction: row !important;
-              flex-wrap: nowrap !important;
-              gap: 4px !important;
-          }
-          div.element-container:has(.action-btn-marker) + div.element-container > div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
-              width: 100% !important;
-              flex: 1 1 auto !important;
-              min-width: 0 !important;
-          }
+          div.element-container:has(.name-row-marker) + div.element-container > div[data-testid="stHorizontalBlock"] { flex-direction: row !important; flex-wrap: nowrap !important; align-items: center !important; justify-content: space-between !important; }
+          div.element-container:has(.name-row-marker) + div.element-container > div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(1) { width: auto !important; flex: 1 1 auto !important; }
+          div.element-container:has(.name-row-marker) + div.element-container > div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) { width: auto !important; flex: 0 0 auto !important; display: flex !important; justify-content: flex-end !important; }
+          div.element-container:has(.action-btn-marker) + div.element-container > div[data-testid="stHorizontalBlock"] { flex-direction: row !important; flex-wrap: nowrap !important; gap: 4px !important; }
+          div.element-container:has(.action-btn-marker) + div.element-container > div[data-testid="stHorizontalBlock"] > div[data-testid="column"] { width: 100% !important; flex: 1 1 auto !important; min-width: 0 !important; }
       }
 
-      /* 추방 버튼 디자인 */
-      div.element-container:has(.name-row-marker) + div.element-container button {
-          background-color: white !important;
-          border: 1px solid #ff4b4b !important;
-          color: #ff4b4b !important;
-          padding: 0px 8px !important;
-          font-size: 0.75rem !important;
-          min-height: 28px !important;
-          height: 28px !important;
-          margin-top: 6px !important;
-          width: auto !important;
-      }
-      div.element-container:has(.action-btn-marker) + div.element-container button {
-          padding: 0 2px !important;
-          font-size: 0.7rem !important;
-          letter-spacing: -0.5px;
-      }
+      div.element-container:has(.name-row-marker) + div.element-container button { background-color: white !important; border: 1px solid #ff4b4b !important; color: #ff4b4b !important; padding: 0px 8px !important; font-size: 0.75rem !important; min-height: 28px !important; height: 28px !important; margin-top: 6px !important; width: auto !important; }
+      div.element-container:has(.action-btn-marker) + div.element-container button { padding: 0 2px !important; font-size: 0.7rem !important; letter-spacing: -0.5px; }
 
-      /* 프로그레스 스텝퍼 */
       .stepper-container { display: flex; align-items: flex-start; justify-content: space-between; width: 100%; margin-top: 10px; }
       .step-wrapper { display: flex; flex-direction: column; align-items: center; width: 50px; z-index: 2; }
       .step-circle { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem; background-color: white; border: 3px solid #dce1e8; color: #dce1e8; margin-bottom: 6px; z-index: 2; transition: 0.3s; }
       .step-label { font-size: 0.65rem; font-weight: 700; color: #a5b0c0; white-space: nowrap; letter-spacing: -0.5px; transition: 0.3s; text-align: center; }
       .step-line { flex-grow: 1; height: 4px; background-color: #dce1e8; margin: 11px -10px 0 -10px; z-index: 1; transition: 0.3s; }
-      
       .step-wrapper.past .step-circle { border-color: #29384f; color: #29384f; }
       .step-wrapper.past .step-label { color: #29384f; }
       .step-line.past { background-color: #29384f; }
-      
       .step-wrapper.active .step-circle { background-color: #007aff; border-color: #007aff; color: white; }
       .step-wrapper.active .step-label { color: #007aff; font-weight: 800; }
       .step-line.active { background-color: #007aff; }
 
-      /* 카카오톡 스타일 채팅 UI */
       .chat-bg { background-color: #ebedf0; padding: 1rem; border-radius: 12px; display: flex; flex-direction: column; gap: 10px; max-height: 400px; overflow-y: auto;}
       .msg-row { display: flex; flex-direction: column; width: 100%; }
       .msg-row.me { align-items: flex-end; }
@@ -264,46 +218,55 @@ def require_user() -> bool:
     return False
 
 def profile(client) -> None:
-    if user() and "student_id_locked_until" not in st.session_state:
-        st.session_state.student_id_locked_until = now() + timedelta(days=365)
-    locked_until = st.session_state.get("student_id_locked_until")
-    locked = bool(locked_until and locked_until > now())
-    
     left, right = st.columns([5, 1])
+    
     with left:
-        with st.form("profile"):
-            st.caption("🚨 첫 로그인 시 비밀번호로 회원가입. 닉네임은 8자리 학번 사용 (1년간 수정 불가).")
-            col1, col2 = st.columns([2, 1])
-            with col1: student = st.text_input("내 닉네임 (학번)", value=user(), placeholder="예: 60001234", disabled=locked)
-            with col2: password = st.text_input("비밀번호 (4자리 이상)", type="password", disabled=locked, placeholder="****")
-                
-            if st.form_submit_button("로그인 및 저장", use_container_width=True, disabled=locked):
-                sid, pwd = student.strip(), password.strip()
-                if not valid_student_id(sid): st.error("학번 8자리를 정확히 입력해 주세요.")
-                elif not pwd: st.error("비밀번호를 입력해 주세요.")
-                else:
-                    if sid in ADMIN_CREDS:
-                        if pwd == ADMIN_CREDS[sid]:
-                            st.session_state.update({"student_id": sid, "is_admin": True, "student_id_locked_until": now() + timedelta(days=365)})
-                            st.rerun()
-                        else: st.error("관리자 비밀번호 오류")
+        # 로그인되지 않은 상태면 폼을 띄움
+        if not user():
+            with st.form("profile"):
+                st.caption("🚨 첫 로그인 시 비밀번호로 자동으로 회원가입이 진행됩니다.")
+                col1, col2 = st.columns([2, 1])
+                with col1: student = st.text_input("내 닉네임 (학번)", placeholder="예: 60001234")
+                with col2: password = st.text_input("비밀번호 (4자리 이상)", type="password", placeholder="****")
+                    
+                if st.form_submit_button("로그인 및 시작하기", use_container_width=True):
+                    sid, pwd = student.strip(), password.strip()
+                    if not valid_student_id(sid): st.error("학번 8자리를 정확히 입력해 주세요.")
+                    elif not pwd: st.error("비밀번호를 입력해 주세요.")
                     else:
-                        user_ref = client.collection("users").document(sid)
-                        user_doc = user_ref.get()
-                        if user_doc.exists:
-                            if user_doc.to_dict().get("password") == pwd:
-                                st.session_state.update({"student_id": sid, "is_admin": False, "student_id_locked_until": now() + timedelta(days=365)})
+                        if sid in ADMIN_CREDS:
+                            if pwd == ADMIN_CREDS[sid]:
+                                st.session_state.update({"student_id": sid, "is_admin": True})
+                                st.query_params["uid"] = sid # 세션 유지를 위해 파라미터 저장
                                 st.rerun()
-                            else: st.error("비밀번호 오류 (이미 가입된 학번)")
+                            else: st.error("관리자 비밀번호 오류")
                         else:
-                            user_ref.set({"password": pwd})
-                            st.session_state.update({"student_id": sid, "is_admin": False, "student_id_locked_until": now() + timedelta(days=365)})
-                            st.rerun()
+                            user_ref = client.collection("users").document(sid)
+                            user_doc = user_ref.get()
+                            if user_doc.exists:
+                                if user_doc.to_dict().get("password") == pwd:
+                                    st.session_state.update({"student_id": sid, "is_admin": False})
+                                    st.query_params["uid"] = sid # 세션 유지를 위해 파라미터 저장
+                                    st.rerun()
+                                else: st.error("비밀번호 오류 (이미 가입된 학번)")
+                            else:
+                                user_ref.set({"password": pwd})
+                                st.session_state.update({"student_id": sid, "is_admin": False})
+                                st.query_params["uid"] = sid # 세션 유지를 위해 파라미터 저장
+                                st.rerun()
+        else:
+            # 로그인 완료 시 깔끔한 환영 메시지 출력
+            st.success(f"✅ 현재 **{user()}** 님으로 로그인되어 있습니다. 원하시는 택시팟을 선택하거나 생성해주세요!")
                             
     with right:
         if user():
-            st.caption(f"현재: {user()}")
+            st.caption(f"현재 접속: {user()}")
             if st.session_state.get("is_admin", False): st.caption("👑 최고 관리자")
+            # 로그아웃 버튼 추가 (세션 초기화)
+            if st.button("로그아웃", use_container_width=True):
+                st.session_state.clear()
+                st.query_params.clear()
+                st.rerun()
 
 def header(client) -> None:
     a, b = st.columns([5, 1.35])
@@ -346,16 +309,13 @@ def home(client) -> None:
         
         with tab1:
             show_safe_image("기흥역 통학버스 시간표(학기중평일).png")
-            
         with tab2:
             with st.expander("🗺️ 명지대역 및 시내 셔틀 노선도 보기"):
                 show_safe_image("셔틀 노선(학기중평일).png")
             show_safe_image("셔틀 시간표(학기중평일1).png")
             show_safe_image("셔틀 시간표(학기중평일2).png")
-            
         with tab3:
             show_safe_image("셔틀시간표(학기중주말,공휴일,방학).png")
-            
         with tab4:
             show_safe_image("셔틀 시간표(계절학기1).png")
             show_safe_image("셔틀 시간표(계절학기2).png")
@@ -391,7 +351,6 @@ def new_post(client) -> None:
     if st.button("← 목록으로"): st.session_state.view="home"; st.rerun()
     st.header("새 택시팟 생성")
     
-    # 🌟 새 택시팟 생성 드롭다운 및 직접입력 기능 추가 🌟
     with st.form("new"):
         title = st.text_input("제목")
         body = st.text_area("내용", height=100, placeholder="자유롭게 작성해주세요. 글이 길어지면 칸이 자동으로 늘어납니다.")
@@ -422,7 +381,6 @@ def new_post(client) -> None:
     if submitted:
         if not require_user(): return
         
-        # 사용자가 선택/입력한 최종 장소 처리
         departure = dep_custom.strip() if "직접 입력" in dep_sel else dep_sel
         destination = dest_custom.strip() if "직접 입력" in dest_sel else dest_sel
         
@@ -630,6 +588,14 @@ def detail(client) -> None:
 def main() -> None:
     css(); client=db()
     st_autorefresh(interval=3000, key="data_refresh")
+    
+    # 🌟 세션 유지 로직: URL 파라미터(query_params)에 저장된 학번 정보를 읽어 로그인 복원 🌟
+    if "uid" in st.query_params:
+        uid = st.query_params["uid"]
+        st.session_state["student_id"] = uid
+        if uid in ADMIN_CREDS:
+            st.session_state["is_admin"] = True
+            
     if "view" not in st.session_state: st.session_state.view="home"
     header(client)
     if st.session_state.view=="new": new_post(client)
